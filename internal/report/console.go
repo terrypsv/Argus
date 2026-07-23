@@ -1,0 +1,101 @@
+// Package report renders a model.Report to the console, JSON and Markdown.
+package report
+
+import (
+	"fmt"
+	"io"
+	"strings"
+
+	"argus/internal/model"
+)
+
+// ANSI colour codes; emptied when colour is disabled.
+type palette struct {
+	reset, red, yellow, green, cyan, gray, bold string
+}
+
+func newPalette(color bool) palette {
+	if !color {
+		return palette{}
+	}
+	return palette{
+		reset: "\033[0m", red: "\033[31m", yellow: "\033[33m",
+		green: "\033[32m", cyan: "\033[36m", gray: "\033[90m", bold: "\033[1m",
+	}
+}
+
+// Console writes a human-readable summary to w.
+func Console(w io.Writer, rep model.Report, color bool) {
+	p := newPalette(color)
+
+	fmt.Fprintf(w, "\n%s%s  ARGUS  security posture report%s\n", p.bold, p.cyan, p.reset)
+	fmt.Fprintf(w, "%s──────────────────────────────────────────────%s\n", p.gray, p.reset)
+	fmt.Fprintf(w, "Host      : %s (%s/%s)\n", rep.Host.Hostname, rep.Host.OS, rep.Host.Arch)
+	fmt.Fprintf(w, "Platform  : %s\n", rep.Host.Platform)
+	fmt.Fprintf(w, "Kernel    : %s\n", rep.Host.Kernel)
+	fmt.Fprintf(w, "Scanned   : %s\n", rep.FinishedAt.Format("2006-01-02 15:04:05"))
+	fmt.Fprintf(w, "Duration  : %d ms\n\n", rep.DurationMS)
+
+	scoreColor := p.green
+	switch {
+	case rep.Score < 60:
+		scoreColor = p.red
+	case rep.Score < 80:
+		scoreColor = p.yellow
+	}
+	fmt.Fprintf(w, "  %sSCORE %d/100   grade %s%s\n", scoreColor+p.bold, rep.Score, rep.Grade, p.reset)
+	fmt.Fprintf(w, "  %sCRITICAL %d  HIGH %d  MEDIUM %d  LOW %d%s\n\n",
+		p.gray, rep.Counts["CRITICAL"], rep.Counts["HIGH"],
+		rep.Counts["MEDIUM"], rep.Counts["LOW"], p.reset)
+
+	// Group findings by category, failures first.
+	var lastCat string
+	printedFail := false
+	for _, f := range rep.Findings {
+		if f.Passed {
+			continue
+		}
+		if f.Severity == model.SevInfo && f.Err == "" {
+			continue
+		}
+		printedFail = true
+		if f.Category != lastCat {
+			fmt.Fprintf(w, "%s[%s]%s\n", p.bold, strings.ToUpper(f.Category), p.reset)
+			lastCat = f.Category
+		}
+		printFinding(w, p, f)
+	}
+	if !printedFail {
+		fmt.Fprintf(w, "%s  No issues detected. Stay vigilant — a clean scan is not a proof of safety.%s\n", p.green, p.reset)
+	}
+
+	fmt.Fprintf(w, "\n%sPassed controls: %d   |   Issues: %d   |   Check errors: %d%s\n",
+		p.gray, rep.Counts["passed"], rep.Counts["failed"], rep.Counts["errors"], p.reset)
+}
+
+func printFinding(w io.Writer, p palette, f model.Finding) {
+	tag, col := "WARN", p.yellow
+	switch f.Severity {
+	case model.SevCritical:
+		tag, col = "CRIT", p.red
+	case model.SevHigh:
+		tag, col = "HIGH", p.red
+	case model.SevMedium:
+		tag, col = "MED ", p.yellow
+	case model.SevLow:
+		tag, col = "LOW ", p.yellow
+	}
+	fmt.Fprintf(w, "  %s%s%s  %s  %s(%s)%s\n", col, tag, p.reset, f.Title, p.gray, f.ID, p.reset)
+	if f.Detail != "" {
+		fmt.Fprintf(w, "        %s\n", f.Detail)
+	}
+	for _, e := range f.Evidence {
+		fmt.Fprintf(w, "        %s· %s%s\n", p.gray, e, p.reset)
+	}
+	if f.Remediation != "" {
+		fmt.Fprintf(w, "        %s→ %s%s\n", p.cyan, f.Remediation, p.reset)
+	}
+	if f.Err != "" {
+		fmt.Fprintf(w, "        %s! %s%s\n", p.red, f.Err, p.reset)
+	}
+}
