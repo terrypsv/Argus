@@ -17,11 +17,13 @@ func Markdown(w io.Writer, rep model.Report) {
 
 	fmt.Fprintf(w, "## Verdict\n\n**%s**\n\n", rep.Verdict)
 
-	fmt.Fprintf(w, "| Axis | Score | Grade | Issues |\n| --- | --- | --- | --- |\n")
-	fmt.Fprintf(w, "| Hardening — is this host configured to resist attack? | %d / 100 | %s | %d |\n",
-		rep.Hardening.Score, rep.Hardening.Grade, rep.Hardening.Issues)
-	fmt.Fprintf(w, "| Integrity — is there evidence of tampering? | %d / 100 | %s | %d |\n\n",
-		rep.Integrity.Score, rep.Integrity.Grade, rep.Integrity.Issues)
+	fmt.Fprintf(w, "| Axis | Score | Grade | Open issues | Accepted | Without exceptions |\n| --- | --- | --- | --- | --- | --- |\n")
+	fmt.Fprintf(w, "| Hardening — is this host configured to resist attack? | %d / 100 | %s | %d | %d | %d (%s) |\n",
+		rep.Hardening.Score, rep.Hardening.Grade, rep.Hardening.Issues,
+		rep.Hardening.Accepted, rep.Hardening.RawScore, rep.Hardening.RawGrade)
+	fmt.Fprintf(w, "| Integrity — is there evidence of tampering? | %d / 100 | %s | %d | %d | %d (%s) |\n\n",
+		rep.Integrity.Score, rep.Integrity.Grade, rep.Integrity.Issues,
+		rep.Integrity.Accepted, rep.Integrity.RawScore, rep.Integrity.RawGrade)
 
 	fmt.Fprintf(w, "| Severity | Count |\n| --- | --- |\n")
 	fmt.Fprintf(w, "| Critical | %d |\n", rep.Counts["CRITICAL"])
@@ -42,12 +44,12 @@ func Markdown(w io.Writer, rep model.Report) {
 	fmt.Fprintf(w, "- **CPUs:** %d\n\n", rep.Host.NumCPU)
 
 	// Issues grouped by category.
-	fmt.Fprintf(w, "## Findings\n\n")
+	fmt.Fprintf(w, "## Open findings\n\n")
 	byCat := map[string][]model.Finding{}
 	var cats []string
 	hasIssue := false
 	for _, f := range rep.Findings {
-		if f.Passed || (f.Severity == model.SevInfo && f.Err == "") {
+		if f.Passed || f.Accepted != "" || (f.Severity == model.SevInfo && f.Err == "") {
 			continue
 		}
 		hasIssue = true
@@ -59,7 +61,7 @@ func Markdown(w io.Writer, rep model.Report) {
 	sort.Strings(cats)
 
 	if !hasIssue {
-		fmt.Fprintf(w, "_No issues detected._\n\n")
+		fmt.Fprintf(w, "_No open issues._\n\n")
 	}
 	for _, c := range cats {
 		fmt.Fprintf(w, "### %s\n\n", strings.Title(c))
@@ -83,6 +85,22 @@ func Markdown(w io.Writer, rep model.Report) {
 			}
 			fmt.Fprintf(w, "\n")
 		}
+	}
+
+	// Accepted findings, listed apart so a waiver is never mistaken for a fix.
+	if rep.Counts["accepted"] > 0 {
+		fmt.Fprintf(w, "## Accepted findings\n\n")
+		fmt.Fprintf(w, "These are real problems, knowingly carried rather than fixed. ")
+		fmt.Fprintf(w, "They are excluded from the score but not from your risk.\n\n")
+		fmt.Fprintf(w, "| Severity | Finding | ID | Reason accepted |\n| --- | --- | --- | --- |\n")
+		for _, f := range rep.Findings {
+			if f.Accepted == "" {
+				continue
+			}
+			fmt.Fprintf(w, "| %s | %s | `%s` | %s |\n",
+				f.Severity.String(), f.Title, f.ID, f.Accepted)
+		}
+		fmt.Fprintf(w, "\n")
 	}
 
 	// Passed controls, collapsed.

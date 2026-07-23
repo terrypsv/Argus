@@ -37,6 +37,10 @@ func main() {
 		os.Exit(runBaseline())
 	case "accept":
 		os.Exit(runAccept())
+	case "unaccept":
+		os.Exit(runUnaccept())
+	case "exceptions":
+		os.Exit(runExceptions())
 	case "version":
 		fmt.Printf("Argus %s (%s/%s)\n", engine.Version, osName(), archName())
 	case "help", "-h", "--help":
@@ -207,6 +211,74 @@ func writeMD(path string, rep model.Report) {
 	fmt.Fprintf(os.Stderr, "Markdown report written to %s\n", path)
 }
 
+// runUnaccept revokes a previously accepted finding.
+func runUnaccept() int {
+	fs := flag.NewFlagSet("unaccept", flag.ExitOnError)
+	exceptions := fs.String("exceptions", "argus-exceptions.json", "exception file to edit")
+
+	args := os.Args[1:]
+	var id string
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		id = args[0]
+		args = args[1:]
+	}
+	_ = fs.Parse(args)
+	if id == "" && fs.NArg() > 0 {
+		id = fs.Arg(0)
+	}
+	if strings.TrimSpace(id) == "" {
+		fmt.Fprintln(os.Stderr, "usage: argus unaccept <FINDING-ID>")
+		return 2
+	}
+
+	removed, err := engine.RemoveException(*exceptions, id)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "cannot update %s: %v\n", *exceptions, err)
+		return 1
+	}
+	if !removed {
+		fmt.Printf("No exception recorded for %s.\n", strings.ToUpper(id))
+		return 1
+	}
+	fmt.Printf("%s is no longer accepted; it will count against the score again.\n", strings.ToUpper(id))
+	return 0
+}
+
+// runExceptions lists what is currently being carried, expired entries included.
+func runExceptions() int {
+	fs := flag.NewFlagSet("exceptions", flag.ExitOnError)
+	path := fs.String("exceptions", "argus-exceptions.json", "exception file to read")
+	_ = fs.Parse(os.Args[1:])
+
+	ef, err := engine.LoadExceptions(*path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "cannot read %s: %v\n", *path, err)
+		return 1
+	}
+	if len(ef.Exceptions) == 0 {
+		fmt.Printf("No exceptions recorded in %s.\n", *path)
+		return 0
+	}
+	now := time.Now()
+	fmt.Printf("Exceptions recorded in %s:\n\n", *path)
+	for _, e := range ef.Exceptions {
+		state := "active, no expiry"
+		if e.Expired(now) {
+			state = "EXPIRED — no longer applied"
+		} else if e.Expires != "" {
+			state = "expires " + e.Expires
+		}
+		fmt.Printf("  %-16s %s\n", e.ID, state)
+		fmt.Printf("    reason : %s\n", e.Reason)
+		if e.AcceptedBy != "" {
+			fmt.Printf("    by     : %s on %s\n", e.AcceptedBy, e.AcceptedAt)
+		}
+		fmt.Println()
+	}
+	fmt.Println("Revoke one with: argus unaccept <FINDING-ID>")
+	return 0
+}
+
 func osName() string   { return runtime.GOOS }
 func archName() string { return runtime.GOARCH }
 
@@ -238,6 +310,8 @@ Usage:
   argus [scan] [flags]        Run a scan (default). Prints two scores.
   argus baseline              Record trusted SHA-256 hashes of critical files.
   argus accept <ID> --reason  Accept a reviewed finding as a known exception.
+  argus unaccept <ID>         Revoke a previously accepted finding.
+  argus exceptions            List what is currently being carried.
   argus version               Print the version.
 
 Scan flags:
