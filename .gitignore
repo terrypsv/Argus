@@ -15,3 +15,12 @@ argus-baseline.json
 .vscode/
 .idea/
 .DS_Store
+
+# Logs de scan
+*.log
+
+# Logs de scan
+*.log
+
+# Logs de scan
+*.log
