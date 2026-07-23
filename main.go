@@ -41,6 +41,8 @@ func main() {
 		os.Exit(runUnaccept())
 	case "exceptions":
 		os.Exit(runExceptions())
+	case "diff":
+		os.Exit(runDiff())
 	case "version":
 		fmt.Printf("Argus %s (%s/%s)\n", engine.Version, osName(), archName())
 	case "help", "-h", "--help":
@@ -279,6 +281,55 @@ func runExceptions() int {
 	return 0
 }
 
+// runDiff compares two JSON reports. In host security the meaningful signal is
+// rarely the absolute state — it is the change: a port that opened, an autostart
+// entry that appeared, a hash that moved.
+func runDiff() int {
+	fs := flag.NewFlagSet("diff", flag.ExitOnError)
+	noColor := fs.Bool("no-color", false, "disable coloured output")
+	failOnChange := fs.Bool("fail-on-change", false, "exit 4 if anything requiring attention changed")
+
+	args := os.Args[1:]
+	var paths []string
+	for len(paths) < 2 && len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		paths = append(paths, args[0])
+		args = args[1:]
+	}
+	_ = fs.Parse(args)
+	for _, a := range fs.Args() {
+		if len(paths) < 2 {
+			paths = append(paths, a)
+		}
+	}
+	if len(paths) < 2 {
+		fmt.Fprintln(os.Stderr, "usage: argus diff <ancien.json> <nouveau.json> [--fail-on-change]")
+		return 2
+	}
+
+	oldRep, err := report.LoadReport(paths[0])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "cannot read %s: %v\n", paths[0], err)
+		return 1
+	}
+	newRep, err := report.LoadReport(paths[1])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "cannot read %s: %v\n", paths[1], err)
+		return 1
+	}
+	if oldRep.Host.Hostname != newRep.Host.Hostname {
+		fmt.Fprintf(os.Stderr, "warning: comparing different hosts (%s and %s)\n",
+			oldRep.Host.Hostname, newRep.Host.Hostname)
+	}
+
+	d := report.Compare(oldRep, newRep)
+	report.ConsoleDiff(os.Stdout, d, useColor(*noColor))
+
+	if *failOnChange && d.Alarming > 0 {
+		return 4
+	}
+	return 0
+}
+
 func osName() string   { return runtime.GOOS }
 func archName() string { return runtime.GOARCH }
 
@@ -312,6 +363,7 @@ Usage:
   argus accept <ID> --reason  Accept a reviewed finding as a known exception.
   argus unaccept <ID>         Revoke a previously accepted finding.
   argus exceptions            List what is currently being carried.
+  argus diff <old> <new>      Compare two JSON reports.
   argus version               Print the version.
 
 Scan flags:
