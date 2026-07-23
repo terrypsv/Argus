@@ -125,6 +125,7 @@ argus baseline              Enregistre les empreintes SHA-256 des fichiers criti
 argus accept <ID> --reason  Accepte un finding examiné comme dérogation connue.
 argus unaccept <ID>         Révoque une dérogation.
 argus exceptions            Liste les dérogations en cours.
+argus diff <ancien> <nouveau>  Compare deux rapports JSON.
 argus version               Affiche la version.
 ```
 
@@ -215,6 +216,56 @@ des dérogations devient relisible en revue de code.
 
 ---
 
+## Détecter les changements
+
+En sécurité hôte, le signal utile est rarement l'état absolu d'une machine mais
+son **évolution** : un port qui s'ouvre, une entrée de démarrage qui apparaît,
+une empreinte qui bouge.
+
+```bash
+argus scan --json hier.json --quiet
+# ... le lendemain ...
+argus scan --json aujourdhui.json --quiet
+argus diff hier.json aujourdhui.json
+```
+
+Les différences sont classées en six familles : **NEW** (un problème absent du
+scan précédent), **WORSENED** et **IMPROVED** (sévérité modifiée), **APPEARED**
+et **GONE** (ligne entrée ou sortie d'un inventaire surveillé), **RESOLVED**
+(problème corrigé ou dérogé). L'évolution des deux scores est affichée en tête.
+
+La partie qui compte est la comparaison des **inventaires**. Quand un attaquant
+s'installe, l'identifiant du finding ne change pas : `RUN-INV` reste `RUN-INV`,
+avec simplement une ligne de plus. Argus compare donc ligne à ligne les
+inventaires où une addition constitue elle-même un signal — ports en écoute,
+entrées de démarrage, binaires SUID, membres du groupe Administrateurs,
+extensions noyau, dérive d'empreintes.
+
+Les ports de la plage dynamique IANA (≥ 49152) sont exclus de la comparaison :
+les points de terminaison RPC Windows et les sockets éphémères Linux en
+rebindent de nouveaux à chaque démarrage, et sans ce filtre chaque comparaison
+remonterait une dizaine de changements sans signification.
+
+### Surveillance continue
+
+`--fail-on-change` renvoie le code de sortie 4 dès qu'un changement nécessitant
+attention est détecté. Combiné à une tâche planifiée, cela transforme Argus en
+détecteur de dérive plutôt qu'en photographie ponctuelle.
+
+```bash
+#!/usr/bin/env bash
+# À lancer quotidiennement via cron ou une tâche planifiée.
+cd /opt/argus
+mv -f courant.json precedent.json 2>/dev/null || true
+./argus scan --json courant.json --quiet --no-color
+if [ -f precedent.json ]; then
+    ./argus diff precedent.json courant.json --fail-on-change --no-color || \
+        echo "Changements détectés sur $(hostname)" | mail -s "Argus" admin@exemple.fr
+fi
+```
+
+---
+
 ## Notation
 
 Chaque axe part de **100**. Chaque contrôle en échec retire des points selon sa
@@ -281,18 +332,32 @@ d'identifiant à `integrityPrefixes` dans `model.go`.
 
 ---
 
+## Tests
+
+```bash
+go test ./... -v
+```
+
+La suite couvre la logique pure, sans dépendance à un système d'exploitation :
+classification par axe, calcul et bornage des scores, exclusion des dérogations
+avec conservation du score brut, expiration et aller-retour du fichier
+d'exceptions, comparaison de rapports et filtrage des ports éphémères.
+
+Un cas mérite d'être signalé : `KRN-TAINT` relève de l'intégrité tandis que
+`KRN-KERNEL-KPTR_RESTRICT` relève du durcissement, malgré leur préfixe commun.
+C'est le genre de règle qui se casse silencieusement lors d'un refactoring, d'où
+le test dédié.
+
 ## Intégration continue
 
-Le dépôt exécute `go vet`, `go build`, un scan de fumée et `gofmt` sur Ubuntu,
-macOS et Windows à chaque pull request. Un projet multiplateforme développé
-depuis une seule machine a besoin de ce filet.
+Le dépôt exécute `go vet`, `go test`, `go build`, un scan de fumée et `gofmt`
+sur Ubuntu, macOS et Windows à chaque pull request. Un projet multiplateforme
+développé depuis une seule machine a besoin de ce filet.
 
 ---
 
 ## Pistes d'évolution
 
-- `argus diff ancien.json nouveau.json` : détecter les changements entre deux
-  scans, ce qui est le vrai signal en sécurité hôte
 - Correspondance de signatures façon YARA sur les fichiers suspects
 - Vérification via le gestionnaire de paquets (`dpkg --verify`, `rpm -Va`)
 - Sortie NDJSON pour ingestion SIEM
