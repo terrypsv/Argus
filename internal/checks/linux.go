@@ -93,7 +93,9 @@ func kernelHardeningCheck(ctx *engine.Context) []model.Finding {
 			"Set kernel.dmesg_restrict=1."},
 		{"kernel.yama.ptrace_scope", "ptrace restriction", geInt(1), model.SevMedium,
 			"Set kernel.yama.ptrace_scope=1 to block cross-process memory injection."},
-		{"kernel.unprivileged_bpf_disabled", "Unprivileged eBPF disabled", eqStr("1"), model.SevMedium,
+		// 0 = unprivileged BPF allowed. 1 = disabled permanently, 2 = disabled
+		// but re-enablable by root. Both 1 and 2 mean it is currently disabled.
+		{"kernel.unprivileged_bpf_disabled", "Unprivileged eBPF disabled", geInt(1), model.SevMedium,
 			"Set kernel.unprivileged_bpf_disabled=1."},
 		{"fs.protected_hardlinks", "Hardlink protection", eqStr("1"), model.SevLow,
 			"Set fs.protected_hardlinks=1."},
@@ -234,6 +236,28 @@ func accountsCheck(ctx *engine.Context) []model.Finding {
 
 // --- ssh ----------------------------------------------------------------------
 
+// sshdRunning reports whether an sshd process is actually alive. Scanning
+// /proc avoids depending on systemd being the init system.
+func sshdRunning() bool {
+	entries, err := os.ReadDir("/proc")
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		if _, err := strconv.Atoi(e.Name()); err != nil {
+			continue
+		}
+		comm := strings.TrimSpace(readFile(filepath.Join("/proc", e.Name(), "comm")))
+		if comm == "sshd" {
+			return true
+		}
+	}
+	return false
+}
+
 func sshHardeningCheck(ctx *engine.Context) []model.Finding {
 	const cfg = "/etc/ssh/sshd_config"
 	if !fileExists(cfg) {
@@ -250,8 +274,18 @@ func sshHardeningCheck(ctx *engine.Context) []model.Finding {
 			vals[strings.ToLower(parts[0])] = strings.ToLower(parts[1])
 		}
 	}
+
+	// A weak sshd_config on a host where sshd is not running is not an exposure:
+	// report it, but do not penalise the score for a service nobody can reach.
+	running := sshdRunning()
+
 	var out []model.Finding
 	add := func(id, title string, sev model.Severity, detail, fix string) {
+		if !running {
+			out = append(out, info(id, "ssh", title+" (sshd not running)",
+				detail+" — the service is not currently running, so this is not an active exposure. "+fix))
+			return
+		}
 		out = append(out, fail(id, "ssh", title, sev, detail, fix))
 	}
 	if v := vals["permitrootlogin"]; v == "yes" {
@@ -402,14 +436,14 @@ func mountFlagsCheck(ctx *engine.Context) []model.Finding {
 			}
 		}
 		if found == nil {
-			out = append(out, fail("MNT-"+strings.ToUpper(strings.Trim(target, "/")), "disk",
+			out = append(out, fail("MNT-"+strings.ToUpper(sanitize(target)), "disk",
 				target+" is not a separate mount", model.SevLow,
 				"Cannot apply noexec/nosuid to "+target+".",
 				"Consider a dedicated mount with noexec,nosuid,nodev."))
 			continue
 		}
 		if !strings.Contains(found.opts, "noexec") {
-			out = append(out, fail("MNT-NOEXEC-"+strings.ToUpper(strings.Trim(target, "/")), "disk",
+			out = append(out, fail("MNT-NOEXEC-"+strings.ToUpper(sanitize(target)), "disk",
 				target+" is mounted without noexec", model.SevMedium,
 				"opts: "+found.opts,
 				"Remount "+target+" with noexec to block execution of dropped payloads."))
@@ -611,12 +645,19 @@ func firewallCheck(ctx *engine.Context) []model.Finding {
 
 // --- process / rootkit heuristics --------------------------------------------
 
+// systemBinaryPrefixes are package-managed locations. A binary that vanishes
+// from one of these while its process keeps running is almost always the result
+// of a package upgrade, not of an attacker.
+var systemBinaryPrefixes = []string{
+	"/usr/", "/lib/", "/lib64/", "/bin/", "/sbin/", "/opt/", "/snap/", "/nix/store/",
+}
+
 func processCheck(ctx *engine.Context) []model.Finding {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
 		return []model.Finding{errFinding("PROC-READ", "process", "Cannot read /proc", err.Error())}
 	}
-	var deleted, tempExec []string
+	var memfd, deletedSuspect, deletedSystem, tempExec []string
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
@@ -628,26 +669,55 @@ func processCheck(ctx *engine.Context) []model.Finding {
 		if err != nil {
 			continue // process gone or no permission
 		}
+		entry := e.Name() + " -> " + exe
+
+		// A memfd-backed image never touched the disk. This is the actual
+		// fileless-execution technique, and it has almost no benign use.
+		if strings.Contains(exe, "memfd:") {
+			memfd = append(memfd, entry)
+			continue
+		}
+
 		if strings.HasSuffix(exe, " (deleted)") {
-			deleted = append(deleted, e.Name()+" -> "+exe)
+			path := strings.TrimSuffix(exe, " (deleted)")
+			if hasAnyPrefix(path, systemBinaryPrefixes...) {
+				deletedSystem = append(deletedSystem, entry)
+			} else {
+				deletedSuspect = append(deletedSuspect, entry)
+			}
+			continue
 		}
 		if containsAny(exe, suspiciousPathTokens...) {
-			tempExec = append(tempExec, e.Name()+" -> "+exe)
+			tempExec = append(tempExec, entry)
 		}
 	}
+
 	var out []model.Finding
-	if len(deleted) > 0 {
+	if len(memfd) > 0 {
+		out = append(out, fail("PROC-MEMFD", "process",
+			"Process(es) running from an anonymous memory file", model.SevCritical,
+			"A memfd-backed executable never existed on disk — the signature of fileless execution.",
+			"Investigate now: `ls -l /proc/<pid>/exe`, `cat /proc/<pid>/maps`, `ss -tnp | grep <pid>`.",
+			cap50(memfd)...))
+	}
+	if len(deletedSuspect) > 0 {
 		out = append(out, fail("PROC-DELETED", "process",
-			"Process(es) running from a deleted binary", model.SevHigh,
-			"Fileless malware often deletes its on-disk image while continuing to run.",
-			"Inspect these PIDs (`ls -l /proc/<pid>/exe`, `cat /proc/<pid>/maps`) before killing.",
-			cap50(deleted)...))
+			"Process(es) running from a deleted non-system binary", model.SevHigh,
+			"The image was removed from disk and did not come from a package-managed location.",
+			"Inspect these PIDs (`ls -l /proc/<pid>/exe`, `cat /proc/<pid>/maps`) before killing them.",
+			cap50(deletedSuspect)...))
 	}
 	if len(tempExec) > 0 {
 		out = append(out, fail("PROC-TEMPEXEC", "process",
 			"Process(es) executing from a temp directory", model.SevHigh,
 			"Legitimate services rarely run from /tmp or /dev/shm.",
 			"Identify the parent and origin of each process.", cap50(tempExec)...))
+	}
+	if len(deletedSystem) > 0 {
+		out = append(out, info("PROC-UPGRADED", "process",
+			fmt.Sprintf("%d process(es) still running a replaced system binary", len(deletedSystem)),
+			"Their on-disk image was replaced by a package upgrade — expected on a rolling distribution. Restart the services (or reboot) so they run the patched code.",
+			cap50(deletedSystem)...))
 	}
 	if len(out) == 0 {
 		out = append(out, pass("PROC-OK", "process", "No obvious process anomalies"))

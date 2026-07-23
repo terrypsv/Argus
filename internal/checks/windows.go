@@ -67,21 +67,60 @@ func winPrivilege(ctx *engine.Context) []model.Finding {
 		"Some checks (BitLocker, some registry hives) may be limited. Re-run in an elevated PowerShell.")}
 }
 
+// registeredAV returns the third-party antivirus products registered with the
+// Windows Security Center, excluding Defender itself. Windows automatically
+// switches Defender to passive mode when another AV registers, so its
+// real-time protection being off is expected, not a finding.
+func registeredAV() []string {
+	out, err := psCmd(`Get-CimInstance -Namespace root/SecurityCenter2 -ClassName AntiVirusProduct -ErrorAction SilentlyContinue | ForEach-Object { $_.displayName }`)
+	if err != nil {
+		return nil
+	}
+	var products []string
+	for _, l := range strings.Split(out, "\n") {
+		name := strings.TrimSpace(l)
+		if name == "" || strings.Contains(lower(name), "windows defender") ||
+			strings.Contains(lower(name), "microsoft defender") {
+			continue
+		}
+		products = append(products, name)
+	}
+	return products
+}
+
 func winDefender(ctx *engine.Context) []model.Finding {
+	thirdParty := registeredAV()
+
 	out, err := psCmd(`$s=Get-MpComputerStatus; "$($s.RealTimeProtectionEnabled)|$($s.AntivirusEnabled)|$($s.AntivirusSignatureAge)"`)
 	if err != nil || out == "" {
+		if len(thirdParty) > 0 {
+			return []model.Finding{info("AV-THIRDPARTY", "antivirus",
+				"Protection provided by a third-party antivirus",
+				"Microsoft Defender could not be queried, which is normal when another product owns real-time protection.",
+				thirdParty...)}
+		}
 		return []model.Finding{info("AV-UNKNOWN", "antivirus",
 			"Could not query Microsoft Defender",
-			"A third-party AV may be installed, or the command needs elevation.")}
+			"The command may need elevation.")}
 	}
 	parts := strings.Split(out, "|")
 	var findings []model.Finding
-	if len(parts) >= 1 && lower(strings.TrimSpace(parts[0])) == "false" {
+
+	rtpOff := len(parts) >= 1 && lower(strings.TrimSpace(parts[0])) == "false"
+	switch {
+	case rtpOff && len(thirdParty) > 0:
+		findings = append(findings, info("AV-THIRDPARTY", "antivirus",
+			"Defender is passive; a third-party antivirus is active",
+			"Windows disables Defender real-time protection when another antivirus registers with the Security Center. Verify the third-party product is up to date and actually scanning.",
+			thirdParty...))
+	case rtpOff:
 		findings = append(findings, fail("AV-RTP", "antivirus",
-			"Defender real-time protection is OFF", model.SevHigh,
-			"Real-time scanning is disabled.", "Re-enable it (Windows Security > Virus & threat protection)."))
+			"No active real-time antivirus protection", model.SevHigh,
+			"Defender real-time scanning is disabled and no third-party antivirus is registered with the Security Center.",
+			"Re-enable it (Windows Security > Virus & threat protection)."))
 	}
-	if len(parts) >= 3 {
+
+	if len(parts) >= 3 && !rtpOff {
 		if age, ok := atoiSafe(strings.TrimSpace(parts[2])); ok && age > 7 {
 			findings = append(findings, fail("AV-SIG", "antivirus",
 				"Defender signatures are stale", model.SevMedium,
@@ -234,10 +273,72 @@ func winPorts(ctx *engine.Context) []model.Finding {
 		}
 	}
 	sort.Strings(inventory)
+	inventory = uniqueStrings(inventory)
 	findings = append(findings, info("NET-LISTEN", "network",
 		fmt.Sprintf("%d listening TCP socket(s)", len(inventory)),
 		"Confirm each open port is expected.", cap50(inventory)...))
 	return findings
+}
+
+// extractExePath pulls the executable path out of a `reg query` output line of
+// the form:  NAME    REG_SZ    "C:\path\app.exe" --flags
+func extractExePath(line string) string {
+	idx := strings.Index(line, "REG_")
+	if idx < 0 {
+		return ""
+	}
+	rest := line[idx:]
+	sp := strings.IndexAny(rest, " \t")
+	if sp < 0 {
+		return ""
+	}
+	rest = strings.TrimSpace(rest[sp:])
+	if rest == "" {
+		return ""
+	}
+	if strings.HasPrefix(rest, `"`) {
+		if end := strings.Index(rest[1:], `"`); end >= 0 {
+			return rest[1 : end+1]
+		}
+		return ""
+	}
+	low := lower(rest)
+	for _, ext := range []string{".exe", ".dll"} {
+		if i := strings.Index(low, ext); i >= 0 {
+			return rest[:i+len(ext)]
+		}
+	}
+	if s := strings.IndexAny(rest, " \t"); s >= 0 {
+		return rest[:s]
+	}
+	return rest
+}
+
+// signedPaths returns the subset of the given files that carry a valid
+// Authenticode signature. A signed binary from a real publisher living under
+// AppData is a normal per-user install, not persistence.
+func signedPaths(paths []string) map[string]bool {
+	res := map[string]bool{}
+	if len(paths) == 0 {
+		return res
+	}
+	var quoted []string
+	for _, p := range paths {
+		quoted = append(quoted, "'"+strings.ReplaceAll(p, "'", "''")+"'")
+	}
+	script := "@(" + strings.Join(quoted, ",") + ") | ForEach-Object { " +
+		"$s = Get-AuthenticodeSignature -LiteralPath $_ -ErrorAction SilentlyContinue; " +
+		"if ($s -and $s.Status -eq 'Valid') { $_ } }"
+	out, err := psCmd(script)
+	if err != nil {
+		return res
+	}
+	for _, l := range strings.Split(out, "\n") {
+		if p := strings.TrimSpace(l); p != "" {
+			res[lower(p)] = true
+		}
+	}
+	return res
 }
 
 func winStartup(ctx *engine.Context) []model.Finding {
@@ -246,7 +347,10 @@ func winStartup(ctx *engine.Context) []model.Finding {
 		`HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run`,
 		`HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce`,
 	}
-	var suspicious, inventory []string
+	type candidate struct{ line, exe string }
+	var candidates []candidate
+	var inventory []string
+
 	for _, k := range keys {
 		out, err := runCmd(8*time.Second, "reg", "query", k)
 		if err != nil {
@@ -259,16 +363,41 @@ func winStartup(ctx *engine.Context) []model.Finding {
 			}
 			inventory = append(inventory, trunc(ll, 120))
 			if containsAny(lower(ll), winSuspicious...) {
-				suspicious = append(suspicious, trunc(ll, 120))
+				candidates = append(candidates, candidate{line: trunc(ll, 120), exe: extractExePath(ll)})
 			}
 		}
 	}
+
+	// Only ask Windows about the files we actually need to judge.
+	var toVerify []string
+	for _, c := range candidates {
+		if c.exe != "" {
+			toVerify = append(toVerify, c.exe)
+		}
+	}
+	signed := signedPaths(toVerify)
+
+	var suspicious, vouched []string
+	for _, c := range candidates {
+		if c.exe != "" && signed[lower(c.exe)] {
+			vouched = append(vouched, c.line)
+			continue
+		}
+		suspicious = append(suspicious, c.line)
+	}
+
 	var out []model.Finding
 	if len(suspicious) > 0 {
 		out = append(out, fail("RUN-SUSP", "persistence",
-			"Suspicious Run-key startup entry(ies)", model.SevHigh,
-			"Autostart entries pointing at temp/AppData or using encoded commands are typical malware persistence.",
-			"Verify each entry; remove anything you did not install.", cap50(suspicious)...))
+			"Unsigned autostart entry(ies) in a user-writable location", model.SevHigh,
+			"These entries run at logon from temp/AppData/ProgramData, or use encoded or living-off-the-land commands, and carry no valid Authenticode signature.",
+			"Verify each one; remove anything you did not install.", cap50(suspicious)...))
+	}
+	if len(vouched) > 0 {
+		out = append(out, info("RUN-SIGNED", "persistence",
+			fmt.Sprintf("%d signed autostart entry(ies) in user-writable paths", len(vouched)),
+			"Per-user installs from real publishers. Signature valid, so not treated as persistence — review anyway if you do not recognise one.",
+			cap50(vouched)...))
 	}
 	out = append(out, info("RUN-INV", "persistence",
 		fmt.Sprintf("%d autostart entry(ies)", len(inventory)),
@@ -301,28 +430,55 @@ func winTasks(ctx *engine.Context) []model.Finding {
 }
 
 func winAdmins(ctx *engine.Context) []model.Finding {
-	out, err := runCmd(10*time.Second, "net", "localgroup", "administrators")
-	if err != nil {
-		return []model.Finding{info("ADM-UNKNOWN", "accounts", "Could not list local administrators", "")}
+	// The group is localised (Administrateurs, Administradores, ...) but its
+	// SID never changes, so resolve by SID rather than by name.
+	out, err := psCmd(`Get-LocalGroupMember -SID S-1-5-32-544 -ErrorAction Stop | ForEach-Object { "$($_.Name) [$($_.ObjectClass)]" }`)
+	if err != nil || strings.TrimSpace(out) == "" {
+		// Fallback: resolve the localised name, then use net localgroup.
+		name, nerr := psCmd(`(Get-LocalGroup -SID S-1-5-32-544).Name`)
+		if nerr == nil && strings.TrimSpace(name) != "" {
+			if raw, rerr := runCmd(10*time.Second, "net", "localgroup", strings.TrimSpace(name)); rerr == nil {
+				out = parseNetLocalgroup(raw)
+			}
+		}
 	}
+
+	var members []string
+	for _, l := range strings.Split(out, "\n") {
+		if ll := strings.TrimSpace(l); ll != "" {
+			members = append(members, ll)
+		}
+	}
+	if len(members) == 0 {
+		return []model.Finding{errFinding("ADM-UNKNOWN", "accounts",
+			"Could not list local administrators",
+			"Neither Get-LocalGroupMember nor net localgroup returned members; re-run elevated.")}
+	}
+	return []model.Finding{info("ADM-LIST", "accounts",
+		fmt.Sprintf("%d local administrator account(s)", len(members)),
+		"Every admin account is a high-value target — keep this list minimal.", members...)}
+}
+
+// parseNetLocalgroup extracts member names from `net localgroup <name>` output,
+// which brackets the member list between a dashed rule and a trailing status line.
+func parseNetLocalgroup(raw string) string {
 	var members []string
 	collect := false
-	for _, l := range strings.Split(out, "\n") {
+	for _, l := range strings.Split(raw, "\n") {
 		ll := strings.TrimSpace(l)
 		if strings.HasPrefix(ll, "----") {
 			collect = true
 			continue
 		}
-		if strings.HasPrefix(lower(ll), "the command completed") {
+		if strings.HasPrefix(lower(ll), "the command completed") ||
+			strings.HasPrefix(lower(ll), "la commande s'est terminée") {
 			collect = false
 		}
 		if collect && ll != "" {
 			members = append(members, ll)
 		}
 	}
-	return []model.Finding{info("ADM-LIST", "accounts",
-		fmt.Sprintf("%d local administrator account(s)", len(members)),
-		"Every admin account is a high-value target — keep this list minimal.", members...)}
+	return strings.Join(members, "\n")
 }
 
 func atoiSafe(s string) (int, bool) {
