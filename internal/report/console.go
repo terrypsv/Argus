@@ -18,6 +18,9 @@ func newPalette(color bool) palette {
 	if !color {
 		return palette{}
 	}
+	// Windows consoles print escape sequences literally until asked not to.
+	// Doing this here covers every reporter that uses colour.
+	enableANSI()
 	return palette{
 		reset: "\033[0m", red: "\033[31m", yellow: "\033[33m",
 		green: "\033[32m", cyan: "\033[36m", gray: "\033[90m", bold: "\033[1m",
