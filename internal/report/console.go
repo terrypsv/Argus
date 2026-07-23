@@ -36,17 +36,26 @@ func Console(w io.Writer, rep model.Report, color bool) {
 	fmt.Fprintf(w, "Scanned   : %s\n", rep.FinishedAt.Format("2006-01-02 15:04:05"))
 	fmt.Fprintf(w, "Duration  : %d ms\n\n", rep.DurationMS)
 
-	scoreColor := p.green
-	switch {
-	case rep.Score < 60:
-		scoreColor = p.red
-	case rep.Score < 80:
-		scoreColor = p.yellow
+	axisColor := func(v int) string {
+		switch {
+		case v < 60:
+			return p.red
+		case v < 80:
+			return p.yellow
+		}
+		return p.green
 	}
-	fmt.Fprintf(w, "  %sSCORE %d/100   grade %s%s\n", scoreColor+p.bold, rep.Score, rep.Grade, p.reset)
-	fmt.Fprintf(w, "  %sCRITICAL %d  HIGH %d  MEDIUM %d  LOW %d%s\n\n",
+	fmt.Fprintf(w, "  HARDENING  %s%3d/100  %s%s     INTEGRITY  %s%3d/100  %s%s\n",
+		axisColor(rep.Hardening.Score)+p.bold, rep.Hardening.Score, rep.Hardening.Grade, p.reset,
+		axisColor(rep.Integrity.Score)+p.bold, rep.Integrity.Score, rep.Integrity.Grade, p.reset)
+	fmt.Fprintf(w, "  %s%s%s\n", axisColor(rep.Score), rep.Verdict, p.reset)
+	fmt.Fprintf(w, "  %sCRITICAL %d  HIGH %d  MEDIUM %d  LOW %d%s\n",
 		p.gray, rep.Counts["CRITICAL"], rep.Counts["HIGH"],
 		rep.Counts["MEDIUM"], rep.Counts["LOW"], p.reset)
+	if rep.Suppressed > 0 {
+		fmt.Fprintf(w, "  %s%d finding(s) accepted as known exceptions%s\n", p.gray, rep.Suppressed, p.reset)
+	}
+	fmt.Fprintln(w)
 
 	// Group findings by category, failures first.
 	var lastCat string
