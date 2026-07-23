@@ -32,10 +32,10 @@ type ExceptionFile struct {
 	Exceptions []Exception `json:"exceptions"`
 }
 
-// expired reports whether the exception is past its expiry date. An unparsable
+// Expired reports whether the exception is past its expiry date. An unparsable
 // date is treated as never expiring rather than silently dropped, so a typo
 // cannot make an acceptance vanish without a word.
-func (e Exception) expired(now time.Time) bool {
+func (e Exception) Expired(now time.Time) bool {
 	if e.Expires == "" {
 		return false
 	}
@@ -91,10 +91,33 @@ func AddException(path string, e Exception) error {
 	return SaveExceptions(path, ef)
 }
 
-// applyExceptions neutralises accepted findings in place. The finding stays in
-// the report, tagged with the reason it was accepted, so nothing is ever
-// hidden — only acknowledged. Returns the number neutralised and the IDs of
-// exceptions that have expired and therefore no longer apply.
+// RemoveException deletes the exception with the given ID. A security decision
+// must be as easy to revoke as it was to take. Reports whether one was found.
+func RemoveException(path, id string) (bool, error) {
+	ef, err := LoadExceptions(path)
+	if err != nil {
+		return false, err
+	}
+	var kept []Exception
+	found := false
+	for _, e := range ef.Exceptions {
+		if strings.EqualFold(strings.TrimSpace(e.ID), strings.TrimSpace(id)) {
+			found = true
+			continue
+		}
+		kept = append(kept, e)
+	}
+	if !found {
+		return false, nil
+	}
+	ef.Exceptions = kept
+	return true, SaveExceptions(path, ef)
+}
+
+// applyExceptions tags accepted findings in place. Severity and Passed are
+// deliberately left untouched: the finding keeps its real weight so the report
+// can still show what it costs, and scoring simply skips anything carrying an
+// Accepted reason. Nothing is hidden — only acknowledged.
 func applyExceptions(findings []model.Finding, ef ExceptionFile, now time.Time) (suppressed int, expired []string) {
 	if len(ef.Exceptions) == 0 {
 		return 0, nil
@@ -104,7 +127,7 @@ func applyExceptions(findings []model.Finding, ef ExceptionFile, now time.Time) 
 		if strings.TrimSpace(e.ID) == "" {
 			continue
 		}
-		if e.expired(now) {
+		if e.Expired(now) {
 			expired = append(expired, e.ID)
 			continue
 		}
@@ -119,8 +142,6 @@ func applyExceptions(findings []model.Finding, ef ExceptionFile, now time.Time) 
 		if !ok {
 			continue
 		}
-		f.Passed = true
-		f.Severity = model.SevInfo
 		f.Accepted = e.Reason
 		suppressed++
 	}

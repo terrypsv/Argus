@@ -51,9 +51,12 @@ func AxisOf(f Finding) Axis {
 
 // AxisScore is the outcome for a single axis.
 type AxisScore struct {
-	Score  int    `json:"score"`  // 0..100
-	Grade  string `json:"grade"`  // A..F
-	Issues int    `json:"issues"` // number of penalising findings on this axis
+	Score    int    `json:"score"`     // 0..100, excluding knowingly accepted findings
+	Grade    string `json:"grade"`     // A..F derived from Score
+	Issues   int    `json:"issues"`    // penalising findings on this axis
+	RawScore int    `json:"raw_score"` // what the score would be with no exceptions
+	RawGrade string `json:"raw_grade"`
+	Accepted int    `json:"accepted"` // findings neutralised by an exception
 }
 
 // Severity ranks how serious a failed finding is.
