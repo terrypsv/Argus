@@ -140,7 +140,7 @@ func writeMD(path string, rep model.Report) {
 	fmt.Fprintf(os.Stderr, "Markdown report written to %s\n", path)
 }
 
-func osName() string  { return runtime.GOOS }
+func osName() string   { return runtime.GOOS }
 func archName() string { return runtime.GOARCH }
 
 func splitCSV(s string) []string {

@@ -135,9 +135,9 @@ func kernelTaintCheck(ctx *engine.Context) []model.Finding {
 		return []model.Finding{pass("KRN-TAINT", "kernel", "Kernel is not tainted")}
 	}
 	bits := map[int]string{
-		1 << 0: "proprietary module loaded",
-		1 << 4: "machine check",
-		1 << 9: "kernel oops",
+		1 << 0:  "proprietary module loaded",
+		1 << 4:  "machine check",
+		1 << 9:  "kernel oops",
 		1 << 11: "firmware workaround",
 		1 << 12: "out-of-tree module loaded",
 		1 << 13: "unsigned module loaded",
@@ -500,9 +500,9 @@ func systemdCheck(ctx *engine.Context) []model.Finding {
 // --- network ------------------------------------------------------------------
 
 type listener struct {
-	port    int
-	allIf   bool
-	proto   string
+	port  int
+	allIf bool
+	proto string
 }
 
 func parseProcTCP(path, proto string, v6 bool) []listener {
@@ -541,15 +541,15 @@ func portsCheck(ctx *engine.Context) []model.Finding {
 		sev   model.Severity
 		label string
 	}{
-		23: {model.SevHigh, "telnet (cleartext)"},
-		21: {model.SevMedium, "ftp (cleartext)"},
-		513: {model.SevMedium, "rlogin"},
-		514: {model.SevMedium, "rsh"},
-		6379: {model.SevHigh, "redis (often unauthenticated)"},
+		23:    {model.SevHigh, "telnet (cleartext)"},
+		21:    {model.SevMedium, "ftp (cleartext)"},
+		513:   {model.SevMedium, "rlogin"},
+		514:   {model.SevMedium, "rsh"},
+		6379:  {model.SevHigh, "redis (often unauthenticated)"},
 		27017: {model.SevHigh, "mongodb"},
-		9200: {model.SevMedium, "elasticsearch"},
-		3306: {model.SevMedium, "mysql exposed"},
-		5432: {model.SevMedium, "postgres exposed"},
+		9200:  {model.SevMedium, "elasticsearch"},
+		3306:  {model.SevMedium, "mysql exposed"},
+		5432:  {model.SevMedium, "postgres exposed"},
 	}
 
 	var out []model.Finding
@@ -654,5 +654,3 @@ func processCheck(ctx *engine.Context) []model.Finding {
 	}
 	return out
 }
-
-
