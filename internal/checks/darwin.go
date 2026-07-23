@@ -254,15 +254,3 @@ func macKexts(ctx *engine.Context) []model.Finding {
 	}
 	return []model.Finding{pass("KEXT-OK", "kernel", "Only Apple kernel extensions loaded")}
 }
-
-func uniqueStrings(in []string) []string {
-	seen := map[string]bool{}
-	var out []string
-	for _, s := range in {
-		if !seen[s] {
-			seen[s] = true
-			out = append(out, s)
-		}
-	}
-	return out
-}
