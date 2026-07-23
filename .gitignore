@@ -1,0 +1,17 @@
+# Binaries
+argus
+argus.exe
+/dist/
+*.exe
+*.out
+
+# Generated reports & baselines (remove these lines if you want to commit them)
+argus-report.json
+argus-report.md
+argus-baseline.json
+/reports/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
