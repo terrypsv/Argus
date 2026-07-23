@@ -48,20 +48,22 @@ func Console(w io.Writer, rep model.Report, color bool) {
 	fmt.Fprintf(w, "  HARDENING  %s%3d/100  %s%s     INTEGRITY  %s%3d/100  %s%s\n",
 		axisColor(rep.Hardening.Score)+p.bold, rep.Hardening.Score, rep.Hardening.Grade, p.reset,
 		axisColor(rep.Integrity.Score)+p.bold, rep.Integrity.Score, rep.Integrity.Grade, p.reset)
+	if rep.Hardening.Accepted+rep.Integrity.Accepted > 0 {
+		fmt.Fprintf(w, "  %swithout the accepted exceptions: hardening %d/100 (%s), integrity %d/100 (%s)%s\n",
+			p.gray, rep.Hardening.RawScore, rep.Hardening.RawGrade,
+			rep.Integrity.RawScore, rep.Integrity.RawGrade, p.reset)
+	}
 	fmt.Fprintf(w, "  %s%s%s\n", axisColor(rep.Score), rep.Verdict, p.reset)
 	fmt.Fprintf(w, "  %sCRITICAL %d  HIGH %d  MEDIUM %d  LOW %d%s\n",
 		p.gray, rep.Counts["CRITICAL"], rep.Counts["HIGH"],
 		rep.Counts["MEDIUM"], rep.Counts["LOW"], p.reset)
-	if rep.Suppressed > 0 {
-		fmt.Fprintf(w, "  %s%d finding(s) accepted as known exceptions%s\n", p.gray, rep.Suppressed, p.reset)
-	}
 	fmt.Fprintln(w)
 
 	// Group findings by category, failures first.
 	var lastCat string
 	printedFail := false
 	for _, f := range rep.Findings {
-		if f.Passed {
+		if f.Passed || f.Accepted != "" {
 			continue
 		}
 		if f.Severity == model.SevInfo && f.Err == "" {
@@ -75,11 +77,25 @@ func Console(w io.Writer, rep model.Report, color bool) {
 		printFinding(w, p, f)
 	}
 	if !printedFail {
-		fmt.Fprintf(w, "%s  No issues detected. Stay vigilant — a clean scan is not a proof of safety.%s\n", p.green, p.reset)
+		fmt.Fprintf(w, "%s  No open issues. Stay vigilant — a clean scan is not a proof of safety.%s\n", p.green, p.reset)
 	}
 
-	fmt.Fprintf(w, "\n%sPassed controls: %d   |   Issues: %d   |   Check errors: %d%s\n",
-		p.gray, rep.Counts["passed"], rep.Counts["failed"], rep.Counts["errors"], p.reset)
+	// Accepted findings are still real problems. They are listed apart so a
+	// waiver can never be mistaken for a fix.
+	if rep.Counts["accepted"] > 0 {
+		fmt.Fprintf(w, "\n%s[ACCEPTED — carried knowingly, not fixed]%s\n", p.bold+p.yellow, p.reset)
+		for _, f := range rep.Findings {
+			if f.Accepted == "" {
+				continue
+			}
+			fmt.Fprintf(w, "  %s%-5s %s  (%s)%s\n", p.yellow, f.Severity.String()[:4], f.Title, f.ID, p.reset)
+			fmt.Fprintf(w, "        %sreason: %s%s\n", p.gray, f.Accepted, p.reset)
+		}
+	}
+
+	fmt.Fprintf(w, "\n%sPassed controls: %d   |   Open issues: %d   |   Accepted: %d   |   Check errors: %d%s\n",
+		p.gray, rep.Counts["passed"], rep.Counts["failed"],
+		rep.Counts["accepted"], rep.Counts["errors"], p.reset)
 }
 
 func printFinding(w io.Writer, p palette, f model.Finding) {
