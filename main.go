@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"argus/internal/checks"
 	"argus/internal/engine"
@@ -34,6 +35,8 @@ func main() {
 		os.Exit(runScan())
 	case "baseline":
 		os.Exit(runBaseline())
+	case "accept":
+		os.Exit(runAccept())
 	case "version":
 		fmt.Printf("Argus %s (%s/%s)\n", engine.Version, osName(), archName())
 	case "help", "-h", "--help":
@@ -51,16 +54,19 @@ func runScan() int {
 	mdPath := fs.String("md", "", "write a Markdown report to this path")
 	outDir := fs.String("out", "", "write both argus-report.json and argus-report.md into this directory")
 	baseline := fs.String("baseline", "argus-baseline.json", "file-integrity baseline path")
+	exceptions := fs.String("exceptions", "argus-exceptions.json", "file of knowingly accepted findings")
 	roots := fs.String("roots", "", "comma-separated filesystem roots to scan (overrides defaults)")
 	quick := fs.Bool("quick", false, "skip slow filesystem walks (SUID / world-writable)")
 	noColor := fs.Bool("no-color", false, "disable coloured console output")
 	quiet := fs.Bool("quiet", false, "suppress per-check progress on stderr")
-	failUnder := fs.Int("fail-under", -1, "exit with code 2 if the score is below this value (for CI)")
+	failUnder := fs.Int("fail-under", -1, "exit with code 2 if the overall score is below this value (for CI)")
+	failIntegrity := fs.Int("fail-under-integrity", -1, "exit with code 3 if the integrity score is below this value")
 	_ = fs.Parse(os.Args[1:])
 
 	cfg := engine.Config{
-		BaselinePath: *baseline,
-		Quick:        *quick,
+		BaselinePath:   *baseline,
+		ExceptionsPath: *exceptions,
+		Quick:          *quick,
 	}
 	if *roots != "" {
 		cfg.ScanRoots = splitCSV(*roots)
@@ -88,10 +94,57 @@ func runScan() int {
 		writeMD(*mdPath, rep)
 	}
 
+	if *failIntegrity >= 0 && rep.Integrity.Score < *failIntegrity {
+		fmt.Fprintf(os.Stderr, "\nintegrity score %d is below threshold %d\n", rep.Integrity.Score, *failIntegrity)
+		return 3
+	}
 	if *failUnder >= 0 && rep.Score < *failUnder {
 		fmt.Fprintf(os.Stderr, "\nscore %d is below threshold %d\n", rep.Score, *failUnder)
 		return 2
 	}
+	return 0
+}
+
+// runAccept records a reviewed finding as a known exception. It refuses to run
+// without a reason: an acceptance nobody can justify later is worse than the
+// finding it hides.
+func runAccept() int {
+	fs := flag.NewFlagSet("accept", flag.ExitOnError)
+	exceptions := fs.String("exceptions", "argus-exceptions.json", "exception file to write to")
+	reason := fs.String("reason", "", "why this finding is accepted (required)")
+	by := fs.String("by", "", "who accepted it")
+	days := fs.Int("days", 0, "expire the acceptance after N days (0 = never)")
+	_ = fs.Parse(os.Args[1:])
+
+	if fs.NArg() < 1 {
+		fmt.Fprintln(os.Stderr, "usage: argus accept <FINDING-ID> --reason \"...\" [--by name] [--days 90]")
+		return 2
+	}
+	id := strings.ToUpper(strings.TrimSpace(fs.Arg(0)))
+	if strings.TrimSpace(*reason) == "" {
+		fmt.Fprintln(os.Stderr, "--reason is required: an undocumented exception is just a hidden risk")
+		return 2
+	}
+
+	e := engine.Exception{
+		ID:         id,
+		Reason:     strings.TrimSpace(*reason),
+		AcceptedBy: strings.TrimSpace(*by),
+		AcceptedAt: time.Now().Format(engine.DateLayout),
+	}
+	if *days > 0 {
+		e.Expires = time.Now().AddDate(0, 0, *days).Format(engine.DateLayout)
+	}
+	if err := engine.AddException(*exceptions, e); err != nil {
+		fmt.Fprintf(os.Stderr, "cannot write %s: %v\n", *exceptions, err)
+		return 1
+	}
+	if e.Expires != "" {
+		fmt.Printf("%s accepted until %s, recorded in %s.\n", id, e.Expires, *exceptions)
+	} else {
+		fmt.Printf("%s accepted (no expiry), recorded in %s.\n", id, *exceptions)
+	}
+	fmt.Println("It will still appear in reports, flagged as accepted, but will no longer affect the score.")
 	return 0
 }
 
@@ -168,24 +221,33 @@ func usage() {
 	fmt.Print(`Argus — host security posture scanner
 
 Usage:
-  argus [scan] [flags]   Run a scan (default). Prints a scored report.
-  argus baseline         Record trusted SHA-256 hashes of critical files.
-  argus version          Print the version.
+  argus [scan] [flags]        Run a scan (default). Prints two scores.
+  argus baseline              Record trusted SHA-256 hashes of critical files.
+  argus accept <ID> --reason  Accept a reviewed finding as a known exception.
+  argus version               Print the version.
 
 Scan flags:
-  --json <path>       Write a JSON report.
-  --md <path>         Write a Markdown report.
-  --out <dir>         Write both JSON and Markdown into <dir>.
-  --baseline <path>   Integrity baseline file (default: argus-baseline.json).
-  --roots <csv>       Override filesystem roots to scan.
-  --quick             Skip slow filesystem walks.
-  --no-color          Disable coloured output.
-  --quiet             Hide per-check progress.
-  --fail-under <n>    Exit code 2 if score < n (CI gate).
+  --json <path>               Write a JSON report.
+  --md <path>                 Write a Markdown report.
+  --out <dir>                 Write both JSON and Markdown into <dir>.
+  --baseline <path>           Integrity baseline file.
+  --exceptions <path>         Accepted-findings file.
+  --roots <csv>               Override filesystem roots to scan.
+  --quick                     Skip slow filesystem walks.
+  --no-color                  Disable coloured output.
+  --quiet                     Hide per-check progress.
+  --fail-under <n>            Exit 2 if the overall score < n.
+  --fail-under-integrity <n>  Exit 3 if the integrity score < n.
+
+Accept flags:
+  --reason "..."              Why it is accepted (required).
+  --by <name>                 Who accepted it.
+  --days <n>                  Expire the acceptance after n days.
 
 Examples:
   argus
-  argus scan --out ./reports --fail-under 80
+  argus scan --out ./reports --fail-under-integrity 100
   argus baseline --add /usr/local/bin/myapp
+  argus accept RUN-SUSP --reason "Figma ships this helper unsigned" --by terry --days 90
 `)
 }
