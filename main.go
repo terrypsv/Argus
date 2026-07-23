@@ -114,13 +114,27 @@ func runAccept() int {
 	reason := fs.String("reason", "", "why this finding is accepted (required)")
 	by := fs.String("by", "", "who accepted it")
 	days := fs.Int("days", 0, "expire the acceptance after N days (0 = never)")
-	_ = fs.Parse(os.Args[1:])
 
-	if fs.NArg() < 1 {
+	// Go's flag package stops parsing at the first positional argument, so
+	// `accept BL-OFF --reason "..."` would silently discard every flag. Lift
+	// the finding ID out first, then parse what remains. This accepts the ID
+	// on either side of the flags.
+	args := os.Args[1:]
+	var id string
+	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
+		id = args[0]
+		args = args[1:]
+	}
+	_ = fs.Parse(args)
+	if id == "" && fs.NArg() > 0 {
+		id = fs.Arg(0)
+	}
+
+	if strings.TrimSpace(id) == "" {
 		fmt.Fprintln(os.Stderr, "usage: argus accept <FINDING-ID> --reason \"...\" [--by name] [--days 90]")
 		return 2
 	}
-	id := strings.ToUpper(strings.TrimSpace(fs.Arg(0)))
+	id = strings.ToUpper(strings.TrimSpace(id))
 	if strings.TrimSpace(*reason) == "" {
 		fmt.Fprintln(os.Stderr, "--reason is required: an undocumented exception is just a hidden risk")
 		return 2
