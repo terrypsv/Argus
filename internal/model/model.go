@@ -2,7 +2,59 @@
 // findings produced by checks, severity levels, and the final report.
 package model
 
-import "time"
+import (
+	"strings"
+	"time"
+)
+
+// Axis separates the two independent questions a host audit answers.
+//
+//	AxisHardening — is this host configured to resist an attack?
+//	AxisIntegrity — is there evidence it has already been tampered with?
+//
+// Collapsing both into a single number is misleading: a clean but unhardened
+// machine and a hardened but compromised one are not the same situation, and
+// they do not call for the same response.
+type Axis int
+
+const (
+	AxisHardening Axis = iota
+	AxisIntegrity
+)
+
+func (a Axis) String() string {
+	if a == AxisIntegrity {
+		return "integrity"
+	}
+	return "hardening"
+}
+
+// integrityPrefixes lists the finding-ID prefixes that answer the compromise
+// question. Anything not listed is treated as configuration posture.
+// KRN- is deliberately absent: kernel sysctls are hardening, while kernel
+// taint and preload hooks (listed explicitly) are tampering evidence.
+var integrityPrefixes = []string{
+	"PROC-", "INTEG-", "RUN-", "TASK-", "CRON-", "SVC-", "LA-",
+	"ACC-", "SUID-", "KEXT-",
+	"KRN-TAINT", "KRN-LDPRELOAD", "KRN-ENVPRELOAD",
+}
+
+// AxisOf classifies a finding into one of the two axes.
+func AxisOf(f Finding) Axis {
+	for _, p := range integrityPrefixes {
+		if strings.HasPrefix(f.ID, p) {
+			return AxisIntegrity
+		}
+	}
+	return AxisHardening
+}
+
+// AxisScore is the outcome for a single axis.
+type AxisScore struct {
+	Score  int    `json:"score"`  // 0..100
+	Grade  string `json:"grade"`  // A..F
+	Issues int    `json:"issues"` // number of penalising findings on this axis
+}
 
 // Severity ranks how serious a failed finding is.
 type Severity int
@@ -79,6 +131,7 @@ type Finding struct {
 	Remediation string   `json:"remediation,omitempty"` // how to fix it
 	Evidence    []string `json:"evidence,omitempty"`    // raw supporting lines (paths, config, etc.)
 	Err         string   `json:"error,omitempty"`       // set if the check could not run reliably
+	Accepted    string   `json:"accepted,omitempty"`    // reason this finding was knowingly accepted
 }
 
 // Normalise fills serialisation-only fields. Call before marshalling.
@@ -104,8 +157,12 @@ type Report struct {
 	StartedAt  time.Time      `json:"started_at"`
 	FinishedAt time.Time      `json:"finished_at"`
 	DurationMS int64          `json:"duration_ms"`
-	Score      int            `json:"score"` // 0..100
-	Grade      string         `json:"grade"` // A..F
+	Score      int            `json:"score"` // overall = the lower of the two axes
+	Grade      string         `json:"grade"` // A..F, derived from Score
+	Hardening  AxisScore      `json:"hardening"`
+	Integrity  AxisScore      `json:"integrity"`
+	Verdict    string         `json:"verdict"`
+	Suppressed int            `json:"suppressed,omitempty"` // findings neutralised by an accepted exception
 	Counts     map[string]int `json:"counts"`
 	Findings   []Finding      `json:"findings"`
 }

@@ -24,6 +24,8 @@ type Config struct {
 	BaselinePath string
 	// Quick skips the slower filesystem walks.
 	Quick bool
+	// ExceptionsPath points at the file of knowingly accepted findings.
+	ExceptionsPath string
 	// Verbose enables extra informational findings.
 	Verbose bool
 }
@@ -98,10 +100,27 @@ func (r *Runner) Run() model.Report {
 		Findings:   findings,
 	}
 	rep.DurationMS = rep.FinishedAt.Sub(rep.StartedAt).Milliseconds()
-	total, counts := score(findings)
-	rep.Score = total
-	rep.Grade = grade(total)
-	rep.Counts = counts
+
+	// Accepted exceptions are neutralised before scoring, but stay in the report.
+	ef, err := LoadExceptions(r.ctx.Config.ExceptionsPath)
+	if err != nil {
+		r.ctx.logf("exceptions: %v", err)
+	}
+	suppressed, expired := applyExceptions(rep.Findings, ef, time.Now())
+	rep.Suppressed = suppressed
+	for _, id := range expired {
+		r.ctx.logf("exception for %s has expired and no longer applies", id)
+	}
+
+	rep.Hardening = axisScore(rep.Findings, model.AxisHardening)
+	rep.Integrity = axisScore(rep.Findings, model.AxisIntegrity)
+	rep.Score = rep.Hardening.Score
+	if rep.Integrity.Score < rep.Score {
+		rep.Score = rep.Integrity.Score
+	}
+	rep.Grade = grade(rep.Score)
+	rep.Verdict = verdict(rep.Hardening, rep.Integrity)
+	rep.Counts = countFindings(rep.Findings)
 
 	sortFindings(rep.Findings)
 	for i := range rep.Findings {
@@ -134,12 +153,13 @@ func (r *Runner) runOne(ch Check) (out []model.Finding) {
 }
 
 // score turns findings into a 0..100 value and a per-severity count of issues.
-func score(findings []model.Finding) (int, map[string]int) {
+// countFindings tallies severities. It never computes a score — that is the
+// job of axisScore, so that counts and scoring cannot drift apart.
+func countFindings(findings []model.Finding) map[string]int {
 	counts := map[string]int{
 		"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFO": 0,
 		"passed": 0, "failed": 0, "errors": 0,
 	}
-	penalty := 0.0
 	for _, f := range findings {
 		if f.Err != "" {
 			counts["errors"]++
@@ -154,6 +174,22 @@ func score(findings []model.Finding) (int, map[string]int) {
 		}
 		counts["failed"]++
 		counts[f.Severity.String()]++
+	}
+	return counts
+}
+
+// axisScore computes the 0..100 score for one axis in isolation.
+func axisScore(findings []model.Finding, axis model.Axis) model.AxisScore {
+	penalty := 0.0
+	issues := 0
+	for _, f := range findings {
+		if f.Passed || f.Severity == model.SevInfo {
+			continue
+		}
+		if model.AxisOf(f) != axis {
+			continue
+		}
+		issues++
 		penalty += f.Severity.Weight()
 	}
 	s := 100.0 - penalty
@@ -163,7 +199,26 @@ func score(findings []model.Finding) (int, map[string]int) {
 	if s > 100 {
 		s = 100
 	}
-	return int(s + 0.5), counts
+	v := int(s + 0.5)
+	return model.AxisScore{Score: v, Grade: grade(v), Issues: issues}
+}
+
+// verdict turns the two axes into one sentence a human can act on. Integrity
+// dominates: a tampering indicator matters more than any amount of missing
+// hardening, because it means the attack already happened.
+func verdict(hard, integ model.AxisScore) string {
+	switch {
+	case integ.Score < 60:
+		return "Compromise indicators found — investigate these before anything else"
+	case integ.Issues > 0:
+		return "Possible tampering indicators — review the integrity findings"
+	case hard.Score >= 90:
+		return "No compromise indicators; hardening is solid"
+	case hard.Score >= 60:
+		return "No compromise indicators; hardening needs work"
+	default:
+		return "No compromise indicators, but this host is barely hardened"
+	}
 }
 
 func grade(score int) string {
