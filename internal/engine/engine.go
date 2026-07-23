@@ -158,7 +158,7 @@ func (r *Runner) runOne(ch Check) (out []model.Finding) {
 func countFindings(findings []model.Finding) map[string]int {
 	counts := map[string]int{
 		"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFO": 0,
-		"passed": 0, "failed": 0, "errors": 0,
+		"passed": 0, "failed": 0, "errors": 0, "accepted": 0,
 	}
 	for _, f := range findings {
 		if f.Err != "" {
@@ -172,16 +172,24 @@ func countFindings(findings []model.Finding) map[string]int {
 		if f.Severity == model.SevInfo {
 			continue
 		}
+		// Accepted findings are real problems the operator chose to carry.
+		// They are neither passed nor counted as open issues.
+		if f.Accepted != "" {
+			counts["accepted"]++
+			continue
+		}
 		counts["failed"]++
 		counts[f.Severity.String()]++
 	}
 	return counts
 }
 
-// axisScore computes the 0..100 score for one axis in isolation.
+// axisScore computes the 0..100 score for one axis in isolation, together with
+// the raw score that ignores every acceptance. Publishing both is what stops a
+// waiver from quietly turning into a clean bill of health.
 func axisScore(findings []model.Finding, axis model.Axis) model.AxisScore {
-	penalty := 0.0
-	issues := 0
+	penalty, rawPenalty := 0.0, 0.0
+	issues, accepted := 0, 0
 	for _, f := range findings {
 		if f.Passed || f.Severity == model.SevInfo {
 			continue
@@ -189,36 +197,53 @@ func axisScore(findings []model.Finding, axis model.Axis) model.AxisScore {
 		if model.AxisOf(f) != axis {
 			continue
 		}
+		rawPenalty += f.Severity.Weight()
+		if f.Accepted != "" {
+			accepted++
+			continue
+		}
 		issues++
 		penalty += f.Severity.Weight()
 	}
-	s := 100.0 - penalty
-	if s < 0 {
-		s = 0
+	clamp := func(p float64) int {
+		s := 100.0 - p
+		if s < 0 {
+			s = 0
+		}
+		if s > 100 {
+			s = 100
+		}
+		return int(s + 0.5)
 	}
-	if s > 100 {
-		s = 100
+	v, raw := clamp(penalty), clamp(rawPenalty)
+	return model.AxisScore{
+		Score: v, Grade: grade(v),
+		RawScore: raw, RawGrade: grade(raw),
+		Issues: issues, Accepted: accepted,
 	}
-	v := int(s + 0.5)
-	return model.AxisScore{Score: v, Grade: grade(v), Issues: issues}
 }
 
 // verdict turns the two axes into one sentence a human can act on. Integrity
 // dominates: a tampering indicator matters more than any amount of missing
 // hardening, because it means the attack already happened.
 func verdict(hard, integ model.AxisScore) string {
+	var base string
 	switch {
 	case integ.Score < 60:
-		return "Compromise indicators found — investigate these before anything else"
+		base = "Compromise indicators found — investigate these before anything else"
 	case integ.Issues > 0:
-		return "Possible tampering indicators — review the integrity findings"
+		base = "Possible tampering indicators — review the integrity findings"
 	case hard.Score >= 90:
-		return "No compromise indicators; hardening is solid"
+		base = "No compromise indicators; hardening is solid"
 	case hard.Score >= 60:
-		return "No compromise indicators; hardening needs work"
+		base = "No compromise indicators; hardening needs work"
 	default:
-		return "No compromise indicators, but this host is barely hardened"
+		base = "No compromise indicators, but this host is barely hardened"
 	}
+	if n := hard.Accepted + integ.Accepted; n > 0 {
+		base += fmt.Sprintf(" — %d accepted finding(s) excluded from the score", n)
+	}
+	return base
 }
 
 func grade(score int) string {
