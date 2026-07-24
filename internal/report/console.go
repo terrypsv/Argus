@@ -4,6 +4,7 @@ package report
 import (
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 
 	"argus/internal/model"
@@ -50,18 +51,20 @@ func Console(w io.Writer, rep model.Report, color bool) {
 		}
 		return p.green
 	}
-	fmt.Fprintf(w, "  HARDENING  %s%3d/100  %s%s     INTEGRITY  %s%3d/100  %s%s\n",
-		axisColor(rep.Hardening.Score)+p.bold, rep.Hardening.Score, rep.Hardening.Grade, p.reset,
-		axisColor(rep.Integrity.Score)+p.bold, rep.Integrity.Score, rep.Integrity.Grade, p.reset)
-	if rep.Hardening.Accepted+rep.Integrity.Accepted > 0 {
-		fmt.Fprintf(w, "  %swithout the accepted exceptions: hardening %d/100 (%s), integrity %d/100 (%s)%s\n",
-			p.gray, rep.Hardening.RawScore, rep.Hardening.RawGrade,
-			rep.Integrity.RawScore, rep.Integrity.RawGrade, p.reset)
-	}
-	fmt.Fprintf(w, "  %s%s%s\n", axisColor(rep.Score), rep.Verdict, p.reset)
-	fmt.Fprintf(w, "  %sCRITICAL %d  HIGH %d  MEDIUM %d  LOW %d%s\n",
+
+	fmt.Fprintf(w, "  %s%s%s\n\n", axisColor(rep.Score)+p.bold, rep.Verdict, p.reset)
+
+	gauge(w, p, "HARDENING", rep.Hardening, rep.Findings, model.AxisHardening, axisColor)
+	gauge(w, p, "INTEGRITY", rep.Integrity, rep.Findings, model.AxisIntegrity, axisColor)
+
+	fmt.Fprintf(w, "  %sCRITICAL %d  HIGH %d  MEDIUM %d  LOW %d%s",
 		p.gray, rep.Counts["CRITICAL"], rep.Counts["HIGH"],
 		rep.Counts["MEDIUM"], rep.Counts["LOW"], p.reset)
+	if open, local, ok := exposureSplit(rep); ok {
+		fmt.Fprintf(w, "%s   |   %d socket(s) reachable from the network, %d loopback-only%s",
+			p.gray, open, local, p.reset)
+	}
+	fmt.Fprintln(w)
 	fmt.Fprintln(w)
 
 	// Group findings by category, failures first.
@@ -135,4 +138,127 @@ func printFinding(w io.Writer, p palette, f model.Finding) {
 	if f.Err != "" {
 		fmt.Fprintf(w, "        %s! %s%s\n", p.red, f.Err, p.reset)
 	}
+}
+
+// gaugeWidth is the printable width of the score bar.
+const gaugeWidth = 46
+
+// gauge draws one axis as a filled scale followed by the exact deductions.
+// A score nobody can decompose is a number to argue with, not a measurement to
+// act on, so the bar and the list always agree.
+func gauge(w io.Writer, p palette, label string, a model.AxisScore,
+	findings []model.Finding, axis model.Axis, colorOf func(int) string) {
+
+	var lost, waived []model.Finding
+	for _, f := range findings {
+		if f.Passed || f.Severity == model.SevInfo || model.AxisOf(f) != axis {
+			continue
+		}
+		if f.Accepted != "" {
+			waived = append(waived, f)
+			continue
+		}
+		lost = append(lost, f)
+	}
+	sort.Slice(lost, func(i, j int) bool {
+		return lost[i].Severity.Weight() > lost[j].Severity.Weight()
+	})
+
+	cells := func(weight float64) int {
+		n := int(weight/100*gaugeWidth + 0.5)
+		if n < 1 {
+			n = 1
+		}
+		return n
+	}
+
+	var bar strings.Builder
+	kept := int(float64(a.Score)/100*gaugeWidth + 0.5)
+	bar.WriteString(strings.Repeat("█", kept))
+	for _, f := range lost {
+		bar.WriteString(strings.Repeat("▒", cells(f.Severity.Weight())))
+	}
+	for _, f := range waived {
+		bar.WriteString(strings.Repeat("░", cells(f.Severity.Weight())))
+	}
+	cut := []rune(bar.String())
+	if len(cut) > gaugeWidth {
+		cut = cut[:gaugeWidth]
+	}
+	line := string(cut) + strings.Repeat(" ", gaugeWidth-len(cut))
+
+	fmt.Fprintf(w, "  %s%-11s %s%3d/100  %s%s\n",
+		p.bold, label, colorOf(a.Score), a.Score, a.Grade, p.reset)
+	fmt.Fprintf(w, "  %s[%s]%s\n", colorOf(a.Score), line, p.reset)
+
+	var items []string
+	for _, f := range lost {
+		items = append(items, fmt.Sprintf("%s -%g", f.ID, f.Severity.Weight()))
+	}
+	for _, f := range waived {
+		items = append(items, fmt.Sprintf("%s (-%g waived)", f.ID, f.Severity.Weight()))
+	}
+	if len(items) == 0 {
+		fmt.Fprintf(w, "   %sno deductions%s\n\n", p.gray, p.reset)
+		return
+	}
+	for _, l := range wrapItems(items, 70) {
+		fmt.Fprintf(w, "   %s%s%s\n", p.gray, l, p.reset)
+	}
+	fmt.Fprintln(w)
+}
+
+// wrapItems packs short labels into lines no wider than width.
+func wrapItems(items []string, width int) []string {
+	var lines []string
+	cur := ""
+	for _, it := range items {
+		candidate := it
+		if cur != "" {
+			candidate = cur + "   " + it
+		}
+		if len([]rune(candidate)) > width && cur != "" {
+			lines = append(lines, cur)
+			cur = it
+			continue
+		}
+		cur = candidate
+	}
+	if cur != "" {
+		lines = append(lines, cur)
+	}
+	return lines
+}
+
+// exposureSplit counts listening sockets by reachability. The security question
+// is not how many are open but how many answer a remote machine.
+func exposureSplit(rep model.Report) (open, local int, ok bool) {
+	for _, f := range rep.Findings {
+		if f.ID != "NET-LISTEN" || len(f.Evidence) == 0 {
+			continue
+		}
+		for _, e := range f.Evidence {
+			if !strings.Contains(e, "/") {
+				continue
+			}
+			if strings.Contains(e, "all interfaces") {
+				open++
+			} else {
+				local++
+			}
+		}
+		return open, local, open+local > 0
+	}
+	return 0, 0, false
+}
+
+// Brief prints one parseable line. It exists for the scheduled-scan case: a
+// cron job wants a value it can grep and alert on, not a page it has to read.
+func Brief(w io.Writer, rep model.Report) {
+	fmt.Fprintf(w, "host=%s hardening=%d/%s integrity=%d/%s open=%d accepted=%d errors=%d verdict=%q\n",
+		rep.Host.Hostname,
+		rep.Hardening.Score, rep.Hardening.Grade,
+		rep.Integrity.Score, rep.Integrity.Grade,
+		rep.Counts["failed"], rep.Counts["accepted"], rep.Counts["errors"],
+		rep.Verdict)
 }
