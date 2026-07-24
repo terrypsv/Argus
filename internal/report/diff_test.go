@@ -93,9 +93,9 @@ func TestCompareIgnoresUnwatchedInventories(t *testing.T) {
 	// Disk usage drifts on every scan; it is not an intrusion signal.
 	d := Compare(
 		mkReport(model.Finding{ID: "DISK-INV", Severity: model.SevInfo, Passed: true,
-			Evidence: []string{"C: — 88% used"}}),
+			Evidence: []string{"C: - 88% used"}}),
 		mkReport(model.Finding{ID: "DISK-INV", Severity: model.SevInfo, Passed: true,
-			Evidence: []string{"C: — 89% used"}}),
+			Evidence: []string{"C: - 89% used"}}),
 	)
 	if len(d.Changes) != 0 {
 		t.Errorf("got %d change(s), want 0 for an unwatched inventory", len(d.Changes))

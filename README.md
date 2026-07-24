@@ -62,13 +62,13 @@ Un score unique aurait affiché « F », ce qui se lit comme une alerte d'intrus
 | Domaine | Linux | macOS | Windows |
 | --- | --- | --- | --- |
 | Durcissement noyau | sysctls, taint, `LD_PRELOAD` | SIP, extensions noyau | UAC, SMBv1 |
-| Comptes | UID 0, mots de passe vides | — | administrateurs locaux (par SID) |
-| Accès distant | configuration SSH | — | RDP + NLA |
+| Comptes | UID 0, mots de passe vides | - | administrateurs locaux (par SID) |
+| Accès distant | configuration SSH | - | RDP + NLA |
 | Disques | SUID/SGID, world-writable, options de montage, occupation | FileVault, occupation | BitLocker, occupation |
 | Persistance | cron, systemd | LaunchAgents/Daemons | clés Run, tâches planifiées |
 | Réseau | ports en écoute, pare-feu | ports, pare-feu applicatif | ports, pare-feu Windows |
-| Antivirus | — | — | Defender et antivirus tiers via le Security Center |
-| Processus | binaire supprimé, exécution depuis `/tmp`, `memfd` | — | — |
+| Antivirus | - | - | Defender et antivirus tiers via le Security Center |
+| Processus | binaire supprimé, exécution depuis `/tmp`, `memfd` | - | - |
 | Intégrité fichiers | oui | oui | oui |
 
 Quelques détails de conception qui évitent le bruit :
@@ -177,7 +177,7 @@ indépendamment du niveau de durcissement.
 ## Les dérogations
 
 Un outil d'audit meurt le jour où l'on cesse de regarder son score parce qu'il
-signale toujours la même chose. Argus permet donc d'assumer un finding — sans
+signale toujours la même chose. Argus permet donc d'assumer un finding - sans
 jamais le masquer.
 
 ```bash
@@ -190,7 +190,7 @@ Trois garde-fous délibérés :
   dérogation que personne ne peut expliquer six mois plus tard est pire que le
   finding qu'elle recouvre.
 - **Le finding reste dans le rapport**, dans une section
-  `ACCEPTED — carried knowingly, not fixed`, avec sa sévérité d'origine et sa
+  `ACCEPTED - carried knowingly, not fixed`, avec sa sévérité d'origine et sa
   justification. Le score brut, hors dérogations, est affiché à côté du score
   effectif. Une machine dérogée ne peut pas se présenter comme irréprochable.
 - **L'expiration.** `--days 90` force une revue. Sans échéance, « temporaire »
@@ -237,7 +237,7 @@ et **GONE** (ligne entrée ou sortie d'un inventaire surveillé), **RESOLVED**
 La partie qui compte est la comparaison des **inventaires**. Quand un attaquant
 s'installe, l'identifiant du finding ne change pas : `RUN-INV` reste `RUN-INV`,
 avec simplement une ligne de plus. Argus compare donc ligne à ligne les
-inventaires où une addition constitue elle-même un signal — ports en écoute,
+inventaires où une addition constitue elle-même un signal - ports en écoute,
 entrées de démarrage, binaires SUID, membres du groupe Administrateurs,
 extensions noyau, dérive d'empreintes.
 
@@ -266,6 +266,36 @@ fi
 
 ---
 
+## Vérification par le gestionnaire de paquets
+
+Une empreinte de référence créée localement souffre du **trust on first use** :
+si l'hôte était déjà compromis au moment du premier `argus baseline`, le binaire
+altéré a été enregistré comme légitime et correspondra indéfiniment.
+
+Le gestionnaire de paquets n'a pas ce défaut. Ses empreintes ont été produites
+par la distribution, avant que la machine existe.
+
+```bash
+sudo ./argus scan --verify-packages --out ./reports
+```
+
+Comptez environ **2 min 20 sur une Kali complète** : chaque fichier packagé est
+réhaché. C'est pour cette raison que le contrôle est optionnel plutôt que
+silencieusement lent.
+
+Trois filtres évitent le bruit :
+
+- **Seul le drapeau `5` déclenche.** `dpkg` et `rpm` signalent aussi les écarts
+  de taille, date, propriétaire et permissions, qui dérivent pour des raisons
+  banales. Seule une empreinte différente prouve que le contenu a changé.
+- **La documentation ne remonte jamais en alerte.** Un changelog compressé sous
+  `/usr/share/doc` change d'empreinte à chaque reconstruction du paquet, et ne
+  contient rien d'exécutable.
+- **Les fichiers de configuration sont isolés.** Un `sshd_config` modifié est
+  normal ; il est listé, jamais compté comme altération.
+
+---
+
 ## Notation
 
 Chaque axe part de **100**. Chaque contrôle en échec retire des points selon sa
@@ -291,7 +321,7 @@ répartit les findings entre les deux axes.
 ```text
 main.go                     CLI : scan / baseline / accept / unaccept / exceptions
 internal/
-  model/     model.go       Finding, Severity, Axis, Report — le vocabulaire commun
+  model/     model.go       Finding, Severity, Axis, Report - le vocabulaire commun
   engine/    engine.go      exécute les contrôles, calcule les deux scores
              exceptions.go  chargement, application et révocation des dérogations
              host_*.go      chaînes noyau/plateforme par OS
@@ -377,4 +407,4 @@ réponse à incident professionnelle.
 
 ## Licence
 
-MIT — voir [LICENSE](LICENSE).
+MIT - voir [LICENSE](LICENSE).

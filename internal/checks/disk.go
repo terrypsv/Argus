@@ -31,7 +31,7 @@ func diskUsageCheck(ctx *engine.Context) []model.Finding {
 	var out []model.Finding
 	var inventory []string
 	for _, v := range vols {
-		inventory = append(inventory, fmt.Sprintf("%s — %d%% used", v.name, v.pctUsed))
+		inventory = append(inventory, fmt.Sprintf("%s - %d%% used", v.name, v.pctUsed))
 		switch {
 		case v.pctUsed >= 98:
 			out = append(out, fail("DISK-FULL-"+sanitize(v.name), "disk",

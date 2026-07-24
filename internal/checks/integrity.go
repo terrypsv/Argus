@@ -48,7 +48,7 @@ func WriteBaseline(path string, paths []string) (int, error) {
 		}
 		sum, err := hashFile(p)
 		if err != nil {
-			continue // unreadable (permissions) — skip rather than abort
+			continue // unreadable (permissions) - skip rather than abort
 		}
 		b.Files[p] = sum
 	}
