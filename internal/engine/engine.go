@@ -19,6 +19,14 @@ import (
 // that cannot say which version it is makes a report impossible to reproduce.
 var Version = "dev"
 
+// Author and Repository identify who produced a report. An audit result that
+// travels without saying which tool and which build produced it cannot be
+// challenged or reproduced, which is half of what makes it worth anything.
+var (
+	Author     = "Terry PASSAVE"
+	Repository = "github.com/terrypsv/Argus"
+)
+
 // Config holds runtime options that individual checks may read.
 type Config struct {
 	// ScanRoots limits filesystem walks (SUID, world-writable, ...). When empty
@@ -102,6 +110,8 @@ func (r *Runner) Run() model.Report {
 	rep := model.Report{
 		Tool:       "Argus",
 		Version:    Version,
+		Author:     Author,
+		Repository: Repository,
 		Host:       r.ctx.Host,
 		StartedAt:  start,
 		FinishedAt: time.Now(),

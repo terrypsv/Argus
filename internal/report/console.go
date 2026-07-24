@@ -32,6 +32,8 @@ func Console(w io.Writer, rep model.Report, color bool) {
 	p := newPalette(color)
 
 	fmt.Fprintf(w, "\n%s%s  ARGUS  security posture report%s\n", p.bold, p.cyan, p.reset)
+	fmt.Fprintf(w, "%s  %s  -  Editeur : %s  -  %s%s\n",
+		p.gray, rep.Version, rep.Author, rep.Repository, p.reset)
 	fmt.Fprintf(w, "%s──────────────────────────────────────────────%s\n", p.gray, p.reset)
 	fmt.Fprintf(w, "Host      : %s (%s/%s)\n", rep.Host.Hostname, rep.Host.OS, rep.Host.Arch)
 	fmt.Fprintf(w, "Platform  : %s\n", rep.Host.Platform)

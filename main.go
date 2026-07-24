@@ -24,6 +24,14 @@ import (
 )
 
 func main() {
+	code := run()
+	// os.Exit skips deferred calls, so the pause has to happen here, after the
+	// command has produced all of its output.
+	pauseIfLaunchedFromExplorer()
+	os.Exit(code)
+}
+
+func run() int {
 	cmd := "scan"
 	if len(os.Args) > 1 && !strings.HasPrefix(os.Args[1], "-") {
 		cmd = os.Args[1]
@@ -32,25 +40,28 @@ func main() {
 
 	switch cmd {
 	case "scan":
-		os.Exit(runScan())
+		return runScan()
 	case "baseline":
-		os.Exit(runBaseline())
+		return runBaseline()
 	case "accept":
-		os.Exit(runAccept())
+		return runAccept()
 	case "unaccept":
-		os.Exit(runUnaccept())
+		return runUnaccept()
 	case "exceptions":
-		os.Exit(runExceptions())
+		return runExceptions()
 	case "diff":
-		os.Exit(runDiff())
+		return runDiff()
 	case "version":
 		fmt.Printf("Argus %s (%s/%s)\n", engine.Version, osName(), archName())
+		fmt.Printf("Editeur : %s\n%s\n", engine.Author, engine.Repository)
+		return 0
 	case "help", "-h", "--help":
 		usage()
+		return 0
 	default:
 		fmt.Fprintf(os.Stderr, "unknown command %q\n\n", cmd)
 		usage()
-		os.Exit(2)
+		return 2
 	}
 }
 
