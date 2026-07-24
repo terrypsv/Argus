@@ -88,7 +88,30 @@ de permission n'interrompt jamais le scan.
 
 ---
 
-## Installation et compilation
+## Installation
+
+### Binaire prêt à l'emploi (recommandé)
+
+Télécharge la version correspondant à ta machine depuis la page
+[Releases](https://github.com/terrypsv/Argus/releases), puis vérifie son
+empreinte avant de l'exécuter. Un outil de sécurité qu'on lance sans vérifier
+son intégrité est une contradiction.
+
+```bash
+# Linux et macOS
+sha256sum -c SHA256SUMS --ignore-missing
+chmod +x argus-linux-amd64
+./argus-linux-amd64 scan
+```
+
+```powershell
+# Windows
+(Get-FileHash .\argus-windows-amd64.exe -Algorithm SHA256).Hash
+# à comparer avec la ligne correspondante de SHA256SUMS
+.\argus-windows-amd64.exe scan
+```
+
+### Compilation depuis les sources
 
 Argus a besoin de la [chaîne d'outils Go](https://go.dev/dl/) (1.21 ou
 supérieur). Aucune autre dépendance, aucun `go get`, fonctionne hors ligne.
@@ -98,6 +121,9 @@ git clone https://github.com/terrypsv/Argus.git
 cd Argus
 go build -o argus .        # produit ./argus (ou argus.exe sous Windows)
 ```
+
+Un binaire compilé ainsi rapporte la version `dev`. Les binaires publiés portent
+le numéro de version, injecté à la compilation depuis l'étiquette Git.
 
 ### Compilation croisée
 
