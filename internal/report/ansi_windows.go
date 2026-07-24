@@ -19,7 +19,7 @@ var (
 
 // enableANSI switches the console attached to stdout into virtual-terminal
 // mode. Unlike Unix terminals, a Windows console does not interpret escape
-// sequences until asked, and Go does not ask on our behalf — so emitting colour
+// sequences until asked, and Go does not ask on our behalf - so emitting colour
 // without this call is a bet on whichever program ran before us.
 //
 // Every failure is ignored on purpose: a scanner must never abort over the

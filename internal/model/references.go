@@ -20,7 +20,7 @@ const (
 //
 // A finding without a reference is an opinion. A finding with one is an
 // auditable control that someone else can verify, contest, or carry into a
-// compliance file — which is the difference between a script and a tool a
+// compliance file - which is the difference between a script and a tool a
 // security officer can act on.
 type Reference struct {
 	Framework Framework `json:"framework"`

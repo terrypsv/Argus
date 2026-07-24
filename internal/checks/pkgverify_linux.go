@@ -28,6 +28,7 @@ type pkgAnomaly struct {
 	path    string
 	flags   string
 	config  bool
+	doc     bool
 	missing bool
 }
 
@@ -55,21 +56,28 @@ func pkgVerifyCheck(ctx *engine.Context) []model.Finding {
 			"Neither dpkg nor rpm is available; falling back to the local baseline only.")}
 	}
 
-	var altered, missing, configs []string
+	var altered, missing, configs, docs []string
 	for _, l := range strings.Split(raw, "\n") {
 		a, ok := parseVerifyLine(l)
 		if !ok {
 			continue
 		}
-		switch {
-		case a.missing:
-			missing = append(missing, a.path)
-		case !contentAltered(a.flags):
+		if !a.missing && !contentAltered(a.flags) {
 			// Size, mtime, ownership and permission drift happen for benign
 			// reasons. Only a digest mismatch proves the contents changed.
 			continue
+		}
+		state := "modified"
+		if a.missing {
+			state = "missing"
+		}
+		switch {
+		case a.doc:
+			docs = append(docs, a.path+"  ("+state+")")
 		case a.config:
-			configs = append(configs, a.path)
+			configs = append(configs, a.path+"  ("+state+")")
+		case a.missing:
+			missing = append(missing, a.path)
 		default:
 			altered = append(altered, fmt.Sprintf("%s  %s", a.flags, a.path))
 		}
@@ -80,28 +88,41 @@ func pkgVerifyCheck(ctx *engine.Context) []model.Finding {
 		out = append(out, fail("PKG-ALTERED", "integrity",
 			fmt.Sprintf("%d packaged file(s) no longer match the vendor digest", len(altered)),
 			model.SevHigh,
-			"These files were installed by a package but their contents differ from what the distribution published. Outside of configuration files, that should not happen.",
-			"Compare against a clean copy (`apt-get install --reinstall <pkg>` or `rpm -V <pkg>`) and investigate before reinstalling — reinstalling destroys the evidence.",
+			"These files were installed by a package but their contents differ from what the distribution published. Documentation and configuration are excluded, so this should not happen on an untouched system.",
+			"Compare against a clean copy (`apt-get install --reinstall <pkg>` or `rpm -V <pkg>`) and investigate before reinstalling - reinstalling destroys the evidence.",
 			cap50(altered)...))
 	}
 	if len(missing) > 0 {
 		out = append(out, fail("PKG-MISSING", "integrity",
 			fmt.Sprintf("%d packaged file(s) are missing", len(missing)),
 			model.SevLow,
-			"Files the package manager expects are absent. Usually documentation stripped by a minimal image, occasionally a binary removed to hide a tool.",
+			"Files the package manager expects are absent, outside documentation and configuration. Usually a stripped image, occasionally a binary removed to hide a tool.",
 			"Confirm the removals were intentional.", cap50(missing)...))
 	}
 	if len(configs) > 0 {
 		out = append(out, info("PKG-CONFIG", "integrity",
-			fmt.Sprintf("%d configuration file(s) modified since installation", len(configs)),
-			"Expected: configuration files are meant to be edited. Listed so an unexpected one stands out.",
+			fmt.Sprintf("%d configuration file(s) changed since installation", len(configs)),
+			"Expected: configuration files exist to be edited. Listed so an unexpected one stands out.",
 			cap50(configs)...))
+	}
+	if len(docs) > 0 {
+		out = append(out, info("PKG-DOC", "integrity",
+			fmt.Sprintf("%d documentation file(s) changed since installation", len(docs)),
+			"Manuals, changelogs and locales hold nothing executable. Compressed docs in particular differ whenever a package is rebuilt, which is why they never raise an alert.",
+			cap50(docs)...))
 	}
 	if len(altered) == 0 && len(missing) == 0 {
 		out = append(out, pass("PKG-OK", "integrity",
-			fmt.Sprintf("All packaged files match the digests published by the distribution (%s)", manager)))
+			fmt.Sprintf("Every packaged binary matches the digest published by the distribution (%s)", manager)))
 	}
 	return out
+}
+
+// docPrefixes hold nothing executable. A compressed changelog changes digest
+// whenever a package is rebuilt, which is noise, not tampering.
+var docPrefixes = []string{
+	"/usr/share/doc/", "/usr/share/man/", "/usr/share/info/",
+	"/usr/share/locale/", "/usr/share/help/", "/usr/share/licenses/",
 }
 
 // parseVerifyLine handles both `dpkg --verify` and `rpm -Va`, whose output
@@ -119,10 +140,22 @@ func parseVerifyLine(line string) (pkgAnomaly, bool) {
 	if !strings.HasPrefix(a.path, "/") {
 		return pkgAnomaly{}, false
 	}
-	// An attribute marker sits between the flags and the path: c = config,
-	// d = documentation, g = ghost, l = license, r = readme.
-	if len(fields) >= 3 && fields[len(fields)-2] == "c" {
+	// rpm places an attribute marker between the flags and the path
+	// (c = config, d = documentation). dpkg does not always emit one, so the
+	// path is the reliable signal and the marker only reinforces it.
+	if len(fields) >= 3 {
+		switch fields[len(fields)-2] {
+		case "c":
+			a.config = true
+		case "d", "r", "l":
+			a.doc = true
+		}
+	}
+	if strings.HasPrefix(a.path, "/etc/") {
 		a.config = true
+	}
+	if hasAnyPrefix(a.path, docPrefixes...) {
+		a.doc = true
 	}
 	if strings.EqualFold(a.flags, "missing") {
 		a.missing = true

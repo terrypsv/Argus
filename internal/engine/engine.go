@@ -157,7 +157,7 @@ func (r *Runner) runOne(ch Check) (out []model.Finding) {
 }
 
 // score turns findings into a 0..100 value and a per-severity count of issues.
-// countFindings tallies severities. It never computes a score — that is the
+// countFindings tallies severities. It never computes a score - that is the
 // job of axisScore, so that counts and scoring cannot drift apart.
 func countFindings(findings []model.Finding) map[string]int {
 	counts := map[string]int{
@@ -234,9 +234,9 @@ func verdict(hard, integ model.AxisScore) string {
 	var base string
 	switch {
 	case integ.Score < 60:
-		base = "Compromise indicators found — investigate these before anything else"
+		base = "Compromise indicators found - investigate these before anything else"
 	case integ.Issues > 0:
-		base = "Possible tampering indicators — review the integrity findings"
+		base = "Possible tampering indicators - review the integrity findings"
 	case hard.Score >= 90:
 		base = "No compromise indicators; hardening is solid"
 	case hard.Score >= 60:
@@ -245,7 +245,7 @@ func verdict(hard, integ model.AxisScore) string {
 		base = "No compromise indicators, but this host is barely hardened"
 	}
 	if n := hard.Accepted + integ.Accepted; n > 0 {
-		base += fmt.Sprintf(" — %d accepted finding(s) excluded from the score", n)
+		base += fmt.Sprintf(" - %d accepted finding(s) excluded from the score", n)
 	}
 	return base
 }
