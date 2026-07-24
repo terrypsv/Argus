@@ -70,6 +70,8 @@ var exactReferences = map[string][]Reference{
 		mitre("T1574.006", "Dynamic Linker Hijacking"),
 	},
 	"INTEG-CHANGED": {mitre("T1554", "Compromise Host Software Binary")},
+	"PKG-ALTERED":   {mitre("T1554", "Compromise Host Software Binary")},
+	"PKG-MISSING":   {mitre("T1070.004", "File Deletion")},
 	"SUID-SUSP":     {mitre("T1548.001", "Setuid and Setgid")},
 	"SUID-INV":      {mitre("T1548.001", "Setuid and Setgid")},
 	"WW-SYSTEM":     {mitre("T1222", "File and Directory Permissions Modification")},

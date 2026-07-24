@@ -26,6 +26,10 @@ type Config struct {
 	Quick bool
 	// ExceptionsPath points at the file of knowingly accepted findings.
 	ExceptionsPath string
+	// VerifyPackages enables comparison of every installed file against the
+	// digests published by the distribution. Slow, but not vulnerable to the
+	// trust-on-first-use weakness of a locally generated baseline.
+	VerifyPackages bool
 	// Verbose enables extra informational findings.
 	Verbose bool
 }

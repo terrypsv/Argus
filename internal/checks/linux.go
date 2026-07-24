@@ -34,6 +34,7 @@ func osChecks() []check {
 		{Name: "listening-ports", Category: "network", Fn: portsCheck},
 		{Name: "firewall", Category: "network", Fn: firewallCheck},
 		{Name: "process-anomalies", Category: "process", Fn: processCheck},
+		{Name: "package-verify", Category: "integrity", Fn: pkgVerifyCheck},
 	}
 }
 
