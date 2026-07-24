@@ -13,7 +13,11 @@ import (
 )
 
 // Version of the tool, surfaced in reports.
-const Version = "0.1.0"
+//
+// It is a var rather than a const so a release build can stamp the git tag into
+// the binary with -ldflags "-X argus/internal/engine.Version=v1.2.3". A binary
+// that cannot say which version it is makes a report impossible to reproduce.
+var Version = "dev"
 
 // Config holds runtime options that individual checks may read.
 type Config struct {
