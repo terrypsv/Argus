@@ -1,0 +1,51 @@
+name: Release
+
+on:
+  push:
+    tags: [ 'v*' ]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Test before publishing
+        run: go test ./... -count=1
+
+      - name: Build every target
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          build() {
+            CGO_ENABLED=0 GOOS="$1" GOARCH="$2" go build \
+              -trimpath \
+              -ldflags "-s -w -X argus/internal/engine.Version=${GITHUB_REF_NAME}" \
+              -o "dist/$3" .
+          }
+          build linux   amd64 argus-linux-amd64
+          build linux   arm64 argus-linux-arm64
+          build darwin  amd64 argus-macos-amd64
+          build darwin  arm64 argus-macos-arm64
+          build windows amd64 argus-windows-amd64.exe
+
+      - name: Checksums
+        run: cd dist && sha256sum * > SHA256SUMS
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" dist/* \
+            --title "Argus ${GITHUB_REF_NAME}" \
+            --generate-notes
