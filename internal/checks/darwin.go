@@ -188,13 +188,32 @@ func parseListenAddr(line string) (int, bool, bool) {
 	return 0, false, false
 }
 
+// readPlist returns a launch item as searchable text.
+//
+// Many macOS launch items are stored in the binary plist format, where a raw
+// string search finds nothing at all. A check that reads those bytes as text
+// silently passes on exactly the files an attacker is most likely to have
+// written, so binary plists are converted rather than guessed at. plutil ships
+// with the system.
+func readPlist(path string) (string, bool) {
+	raw := readFile(path)
+	if !strings.HasPrefix(raw, "bplist") {
+		return raw, true
+	}
+	out, err := runCmd(8*time.Second, "plutil", "-convert", "xml1", "-o", "-", path)
+	if err != nil || strings.TrimSpace(out) == "" {
+		return "", false
+	}
+	return out, true
+}
+
 func macLaunchAgents(ctx *engine.Context) []model.Finding {
 	dirs := []string{
 		filepath.Join(os.Getenv("HOME"), "Library/LaunchAgents"),
 		"/Library/LaunchAgents",
 		"/Library/LaunchDaemons",
 	}
-	var suspicious, inventory []string
+	var suspicious, inventory, unreadable []string
 	for _, dir := range dirs {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
@@ -206,18 +225,29 @@ func macLaunchAgents(ctx *engine.Context) []model.Finding {
 			}
 			p := filepath.Join(dir, e.Name())
 			inventory = append(inventory, p)
-			content := strings.ToLower(readFile(p))
-			if containsAny(content, macSuspicious...) {
+
+			content, ok := readPlist(p)
+			if !ok {
+				unreadable = append(unreadable, p)
+				continue
+			}
+			if containsAny(strings.ToLower(content), macSuspicious...) {
 				suspicious = append(suspicious, p)
 			}
 		}
 	}
+
 	var out []model.Finding
 	if len(suspicious) > 0 {
 		out = append(out, fail("LA-SUSP", "persistence",
 			"Suspicious LaunchAgent/Daemon(s)", model.SevHigh,
 			"A launch item referencing temp dirs, shared folders or download/obfuscation tools is a common macOS persistence trick.",
 			"Inspect each plist; remove anything you did not install.", cap50(suspicious)...))
+	}
+	if len(unreadable) > 0 {
+		out = append(out, errFinding("LA-UNREADABLE", "persistence",
+			fmt.Sprintf("%d launch item(s) could not be decoded", len(unreadable)),
+			"Binary plists that plutil could not convert. They were not inspected, so treat this as an unchecked area rather than a clean result."))
 	}
 	out = append(out, info("LA-INV", "persistence",
 		fmt.Sprintf("%d launch item(s)", len(inventory)),

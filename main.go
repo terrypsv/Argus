@@ -365,7 +365,24 @@ func runServe() int {
 	quick := fs.Bool("quick", false, "skip slow filesystem walks")
 	verifyPkgs := fs.Bool("verify-packages", false, "check installed files against the distro digests (Linux)")
 	noOpen := fs.Bool("no-open", false, "print the address instead of opening a browser")
+	reportPath := fs.String("report", "", "serve an existing JSON report instead of running a new scan")
 	_ = fs.Parse(os.Args[1:])
+
+	// Serving a saved report matters on Unix: the scan needs root, but running
+	// a browser as root does not. Scan with sudo, write the JSON, then serve it
+	// as yourself.
+	if *reportPath != "" {
+		rep, err := report.LoadReport(*reportPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "cannot read %s: %v\n", *reportPath, err)
+			return 1
+		}
+		if err := webui.Serve(rep, os.Stdout, !*noOpen); err != nil {
+			fmt.Fprintf(os.Stderr, "cannot start the local report server: %v\n", err)
+			return 1
+		}
+		return 0
+	}
 
 	runner := engine.New(checks.All(), engine.Config{
 		BaselinePath:   *baseline,
@@ -416,6 +433,7 @@ Usage:
   argus unaccept <ID>         Revoke a previously accepted finding.
   argus exceptions            List what is currently being carried.
   argus diff <old> <new>      Compare two JSON reports.\n  argus serve                 Scan, then open the report in your browser.
+                              --report <file> serves a saved JSON instead.
   argus version               Print the version.
 
 Scan flags:
