@@ -40,6 +40,9 @@ func Console(w io.Writer, rep model.Report, color bool) {
 	fmt.Fprintf(w, "Platform  : %s\n", rep.Host.Platform)
 	fmt.Fprintf(w, "Kernel    : %s\n", rep.Host.Kernel)
 	fmt.Fprintf(w, "Scanned   : %s\n", rep.FinishedAt.Format("2006-01-02 15:04:05"))
+	if rep.Profile != "" && rep.Profile != "workstation" {
+		fmt.Fprintf(w, "Profile   : %s%s%s\n", p.bold, rep.Profile, p.reset)
+	}
 	fmt.Fprintf(w, "Duration  : %d ms\n\n", rep.DurationMS)
 
 	axisColor := func(v int) string {
