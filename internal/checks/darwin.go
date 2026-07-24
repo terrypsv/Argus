@@ -250,7 +250,7 @@ func macKexts(ctx *engine.Context) []model.Finding {
 	if len(thirdParty) > 0 {
 		return []model.Finding{info("KEXT-3RD", "kernel",
 			fmt.Sprintf("%d third-party kernel extension(s) loaded", len(thirdParty)),
-			"Third-party kexts run in the kernel — verify each vendor is trusted.", cap50(thirdParty)...)}
+			"Third-party kexts run in the kernel - verify each vendor is trusted.", cap50(thirdParty)...)}
 	}
 	return []model.Finding{pass("KEXT-OK", "kernel", "Only Apple kernel extensions loaded")}
 }

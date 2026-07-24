@@ -117,7 +117,7 @@ func RemoveException(path, id string) (bool, error) {
 // applyExceptions tags accepted findings in place. Severity and Passed are
 // deliberately left untouched: the finding keeps its real weight so the report
 // can still show what it costs, and scoring simply skips anything carrying an
-// Accepted reason. Nothing is hidden — only acknowledged.
+// Accepted reason. Nothing is hidden - only acknowledged.
 func applyExceptions(findings []model.Finding, ef ExceptionFile, now time.Time) (suppressed int, expired []string) {
 	if len(ef.Exceptions) == 0 {
 		return 0, nil

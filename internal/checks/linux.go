@@ -204,7 +204,7 @@ func accountsCheck(ctx *engine.Context) []model.Finding {
 	if len(uid0) > 0 {
 		out = append(out, fail("ACC-UID0", "accounts",
 			"Non-root account(s) with UID 0", model.SevCritical,
-			"A UID-0 account has full root privileges — a textbook backdoor.",
+			"A UID-0 account has full root privileges - a textbook backdoor.",
 			"Remove or fix the account immediately.", uid0...))
 	} else {
 		out = append(out, pass("ACC-UID0", "accounts", "Only root has UID 0"))
@@ -284,7 +284,7 @@ func sshHardeningCheck(ctx *engine.Context) []model.Finding {
 	add := func(id, title string, sev model.Severity, detail, fix string) {
 		if !running {
 			out = append(out, info(id, "ssh", title+" (sshd not running)",
-				detail+" — the service is not currently running, so this is not an active exposure. "+fix))
+				detail+" - the service is not currently running, so this is not an active exposure. "+fix))
 			return
 		}
 		out = append(out, fail(id, "ssh", title, sev, detail, fix))
@@ -606,7 +606,7 @@ func portsCheck(ctx *engine.Context) []model.Finding {
 	sort.Strings(inventory)
 	out = append(out, info("NET-LISTEN", "network",
 		fmt.Sprintf("%d listening TCP socket(s)", len(ls)),
-		"Every open port is attack surface — confirm each is expected.", cap50(inventory)...))
+		"Every open port is attack surface - confirm each is expected.", cap50(inventory)...))
 	return out
 }
 
@@ -697,7 +697,7 @@ func processCheck(ctx *engine.Context) []model.Finding {
 	if len(memfd) > 0 {
 		out = append(out, fail("PROC-MEMFD", "process",
 			"Process(es) running from an anonymous memory file", model.SevCritical,
-			"A memfd-backed executable never existed on disk — the signature of fileless execution.",
+			"A memfd-backed executable never existed on disk - the signature of fileless execution.",
 			"Investigate now: `ls -l /proc/<pid>/exe`, `cat /proc/<pid>/maps`, `ss -tnp | grep <pid>`.",
 			cap50(memfd)...))
 	}
@@ -717,7 +717,7 @@ func processCheck(ctx *engine.Context) []model.Finding {
 	if len(deletedSystem) > 0 {
 		out = append(out, info("PROC-UPGRADED", "process",
 			fmt.Sprintf("%d process(es) still running a replaced system binary", len(deletedSystem)),
-			"Their on-disk image was replaced by a package upgrade — expected on a rolling distribution. Restart the services (or reboot) so they run the patched code.",
+			"Their on-disk image was replaced by a package upgrade - expected on a rolling distribution. Restart the services (or reboot) so they run the patched code.",
 			cap50(deletedSystem)...))
 	}
 	if len(out) == 0 {

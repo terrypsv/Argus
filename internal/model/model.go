@@ -9,8 +9,8 @@ import (
 
 // Axis separates the two independent questions a host audit answers.
 //
-//	AxisHardening — is this host configured to resist an attack?
-//	AxisIntegrity — is there evidence it has already been tampered with?
+//	AxisHardening - is this host configured to resist an attack?
+//	AxisIntegrity - is there evidence it has already been tampered with?
 //
 // Collapsing both into a single number is misleading: a clean but unhardened
 // machine and a hardened but compromised one are not the same situation, and

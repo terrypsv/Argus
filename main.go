@@ -1,4 +1,4 @@
-// Argus — cross-platform host security posture scanner.
+// Argus - cross-platform host security posture scanner.
 //
 // Usage:
 //
@@ -268,7 +268,7 @@ func runExceptions() int {
 	for _, e := range ef.Exceptions {
 		state := "active, no expiry"
 		if e.Expired(now) {
-			state = "EXPIRED — no longer applied"
+			state = "EXPIRED - no longer applied"
 		} else if e.Expires != "" {
 			state = "expires " + e.Expires
 		}
@@ -284,7 +284,7 @@ func runExceptions() int {
 }
 
 // runDiff compares two JSON reports. In host security the meaningful signal is
-// rarely the absolute state — it is the change: a port that opened, an autostart
+// rarely the absolute state - it is the change: a port that opened, an autostart
 // entry that appeared, a hash that moved.
 func runDiff() int {
 	fs := flag.NewFlagSet("diff", flag.ExitOnError)
@@ -357,7 +357,7 @@ func useColor(noColor bool) bool {
 }
 
 func usage() {
-	fmt.Print(`Argus — host security posture scanner
+	fmt.Print(`Argus - host security posture scanner
 
 Usage:
   argus [scan] [flags]        Run a scan (default). Prints two scores.

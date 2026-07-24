@@ -196,7 +196,7 @@ func winRDP(ctx *engine.Context) []model.Finding {
 	if !strings.Contains(out, "0x0") {
 		return []model.Finding{pass("RDP-OFF", "network", "RDP is disabled")}
 	}
-	// RDP enabled — check Network Level Authentication.
+	// RDP enabled - check Network Level Authentication.
 	nla, _ := runCmd(8*time.Second, "reg", "query",
 		`HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp`, "/v", "UserAuthentication")
 	if strings.Contains(nla, "0x0") {
@@ -396,7 +396,7 @@ func winStartup(ctx *engine.Context) []model.Finding {
 	if len(vouched) > 0 {
 		out = append(out, info("RUN-SIGNED", "persistence",
 			fmt.Sprintf("%d signed autostart entry(ies) in user-writable paths", len(vouched)),
-			"Per-user installs from real publishers. Signature valid, so not treated as persistence — review anyway if you do not recognise one.",
+			"Per-user installs from real publishers. Signature valid, so not treated as persistence - review anyway if you do not recognise one.",
 			cap50(vouched)...))
 	}
 	out = append(out, info("RUN-INV", "persistence",
@@ -456,7 +456,7 @@ func winAdmins(ctx *engine.Context) []model.Finding {
 	}
 	return []model.Finding{info("ADM-LIST", "accounts",
 		fmt.Sprintf("%d local administrator account(s)", len(members)),
-		"Every admin account is a high-value target — keep this list minimal.", members...)}
+		"Every admin account is a high-value target - keep this list minimal.", members...)}
 }
 
 // parseNetLocalgroup extracts member names from `net localgroup <name>` output,
