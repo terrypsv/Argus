@@ -171,6 +171,7 @@ type Report struct {
 	Hardening  AxisScore `json:"hardening"`
 	Integrity  AxisScore `json:"integrity"`
 	Verdict    string    `json:"verdict"`
+	Profile    string    `json:"profile,omitempty"`    // class of machine, deciding built-in waivers
 	Suppressed int       `json:"suppressed,omitempty"` // findings neutralised by an accepted exception
 	// Weights publishes the penalty attached to each severity, so a reader of
 	// the JSON can recompute the score instead of trusting it.
