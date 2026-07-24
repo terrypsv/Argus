@@ -74,6 +74,13 @@ func Markdown(w io.Writer, rep model.Report) {
 			if f.Remediation != "" {
 				fmt.Fprintf(w, "- **Remediation:** %s\n", f.Remediation)
 			}
+			if len(f.References) > 0 {
+				var refs []string
+				for _, r := range f.References {
+					refs = append(refs, fmt.Sprintf("%s `%s` (%s)", r.Framework, r.ID, r.Title))
+				}
+				fmt.Fprintf(w, "- **References:** %s\n", strings.Join(refs, " · "))
+			}
 			if len(f.Evidence) > 0 {
 				fmt.Fprintf(w, "- **Evidence:**\n")
 				for _, e := range f.Evidence {

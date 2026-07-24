@@ -123,6 +123,13 @@ func printFinding(w io.Writer, p palette, f model.Finding) {
 	if f.Remediation != "" {
 		fmt.Fprintf(w, "        %s→ %s%s\n", p.cyan, f.Remediation, p.reset)
 	}
+	if len(f.References) > 0 {
+		var refs []string
+		for _, r := range f.References {
+			refs = append(refs, r.String())
+		}
+		fmt.Fprintf(w, "        %sref: %s%s\n", p.gray, strings.Join(refs, ", "), p.reset)
+	}
 	if f.Err != "" {
 		fmt.Fprintf(w, "        %s! %s%s\n", p.red, f.Err, p.reset)
 	}
