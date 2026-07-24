@@ -85,6 +85,7 @@ func runScan() int {
 	verifyPkgs := fs.Bool("verify-packages", false, "compare every installed file against the distribution's digests (Linux, slow)")
 	noColor := fs.Bool("no-color", false, "disable coloured console output")
 	quiet := fs.Bool("quiet", false, "suppress per-check progress on stderr")
+	brief := fs.Bool("brief", false, "print a single parseable line instead of the full report")
 	failUnder := fs.Int("fail-under", -1, "exit with code 2 if the overall score is below this value (for CI)")
 	failIntegrity := fs.Int("fail-under-integrity", -1, "exit with code 3 if the integrity score is below this value")
 	_ = fs.Parse(os.Args[1:])
@@ -106,7 +107,11 @@ func runScan() int {
 	rep := runner.Run()
 
 	// Console output.
-	report.Console(os.Stdout, rep, useColor(*noColor))
+	if *brief {
+		report.Brief(os.Stdout, rep)
+	} else {
+		report.Console(os.Stdout, rep, useColor(*noColor))
+	}
 
 	// Optional file outputs.
 	if *outDir != "" {
@@ -424,6 +429,7 @@ Scan flags:
   --verify-packages           Check installed files against the distro digests (Linux).
   --no-color                  Disable coloured output.
   --quiet                     Hide per-check progress.
+  --brief                     One parseable line instead of the full report.
   --fail-under <n>            Exit 2 if the overall score < n.
   --fail-under-integrity <n>  Exit 3 if the integrity score < n.
 
