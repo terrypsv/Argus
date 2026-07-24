@@ -23,7 +23,7 @@ const (
 )
 
 // watchedInventories are findings whose evidence list is an inventory, where a
-// new line is itself the security signal. The finding ID never changes — a port
+// new line is itself the security signal. The finding ID never changes - a port
 // that opens or an autostart entry that appears only shows up inside it. This
 // is where an intrusion is usually visible first.
 var watchedInventories = map[string]bool{
@@ -245,10 +245,10 @@ func ConsoleDiff(w io.Writer, d Diff, color bool) {
 	sections := []struct {
 		kind, label, colour string
 	}{
-		{KindNew, "NEW — problems that were not there before", p.red},
+		{KindNew, "NEW - problems that were not there before", p.red},
 		{KindWorse, "WORSENED", p.red},
-		{KindAppeared, "APPEARED — new entries in a watched inventory", p.yellow},
-		{KindDisappeared, "GONE — entries that left a watched inventory", p.gray},
+		{KindAppeared, "APPEARED - new entries in a watched inventory", p.yellow},
+		{KindDisappeared, "GONE - entries that left a watched inventory", p.gray},
 		{KindBetter, "IMPROVED", p.green},
 		{KindResolved, "RESOLVED", p.green},
 	}

@@ -80,13 +80,13 @@ func Console(w io.Writer, rep model.Report, color bool) {
 		printFinding(w, p, f)
 	}
 	if !printedFail {
-		fmt.Fprintf(w, "%s  No open issues. Stay vigilant — a clean scan is not a proof of safety.%s\n", p.green, p.reset)
+		fmt.Fprintf(w, "%s  No open issues. Stay vigilant - a clean scan is not a proof of safety.%s\n", p.green, p.reset)
 	}
 
 	// Accepted findings are still real problems. They are listed apart so a
 	// waiver can never be mistaken for a fix.
 	if rep.Counts["accepted"] > 0 {
-		fmt.Fprintf(w, "\n%s[ACCEPTED — carried knowingly, not fixed]%s\n", p.bold+p.yellow, p.reset)
+		fmt.Fprintf(w, "\n%s[ACCEPTED - carried knowingly, not fixed]%s\n", p.bold+p.yellow, p.reset)
 		for _, f := range rep.Findings {
 			if f.Accepted == "" {
 				continue
