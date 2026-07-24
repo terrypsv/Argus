@@ -540,15 +540,41 @@ type listener struct {
 	proto string
 }
 
-func parseProcTCP(path, proto string, v6 bool) []listener {
-	var out []listener
+// tcpListenState is the hex state of a socket in LISTEN in /proc/net/tcp.
+const tcpListenState = "0A"
+
+// linuxEphemeralFloor is the bottom of Linux's default local port range. A UDP
+// socket bound above it is a client's source port, not a service. TCP needs no
+// such rule because a client socket is never in LISTEN.
+const linuxEphemeralFloor = 32768
+
+// parseProcNet reads a /proc/net/{tcp,udp}[6] table. listenState is the hex
+// state a socket must be in to count; an empty value accepts every state, which
+// is what UDP needs since it has no listening state.
+//
+// The boolean distinguishes "the table was readable and held no sockets" from
+// "the table could not be read". Reporting zero open ports because the check
+// failed is worse than reporting nothing: it is a false all-clear.
+func parseProcNet(path, proto, listenState string) ([]listener, bool) {
+	if !fileExists(path) {
+		return nil, false
+	}
 	lines := readLines(path)
+	if len(lines) == 0 {
+		return nil, false // present but unreadable: /proc tables always carry a header
+	}
+	udp := strings.HasPrefix(proto, "udp")
+
+	var out []listener
 	for i, l := range lines {
 		if i == 0 {
 			continue // header
 		}
 		f := strings.Fields(l)
-		if len(f) < 4 || f[3] != "0A" { // 0A = TCP LISTEN
+		if len(f) < 4 {
+			continue
+		}
+		if listenState != "" && f[3] != listenState {
 			continue
 		}
 		la := f[1]
@@ -558,37 +584,67 @@ func parseProcTCP(path, proto string, v6 bool) []listener {
 		}
 		addrHex, portHex := la[:colon], la[colon+1:]
 		port, err := strconv.ParseInt(portHex, 16, 32)
-		if err != nil {
+		if err != nil || port == 0 {
 			continue
+		}
+		if udp && port >= linuxEphemeralFloor {
+			continue // a client's source port, not a listening service
 		}
 		all := strings.Trim(addrHex, "0") == "" // 0.0.0.0 or ::
 		out = append(out, listener{port: int(port), allIf: all, proto: proto})
 	}
-	return out
+	return out, true
+}
+
+// family collapses tcp/tcp6 and udp/udp6 for risk lookups.
+func family(proto string) string {
+	if strings.HasPrefix(proto, "udp") {
+		return "udp"
+	}
+	return "tcp"
 }
 
 func portsCheck(ctx *engine.Context) []model.Finding {
-	var ls []listener
-	ls = append(ls, parseProcTCP("/proc/net/tcp", "tcp", false)...)
-	ls = append(ls, parseProcTCP("/proc/net/tcp6", "tcp6", true)...)
+	tcp4, okTCP4 := parseProcNet("/proc/net/tcp", "tcp", tcpListenState)
+	tcp6, okTCP6 := parseProcNet("/proc/net/tcp6", "tcp6", tcpListenState)
+	udp4, _ := parseProcNet("/proc/net/udp", "udp", "")
+	udp6, _ := parseProcNet("/proc/net/udp6", "udp6", "")
 
-	risky := map[int]struct {
+	if !okTCP4 && !okTCP6 {
+		return []model.Finding{errFinding("NET-LISTEN", "network",
+			"Could not enumerate listening sockets",
+			"Neither /proc/net/tcp nor /proc/net/tcp6 could be read. Announcing zero open ports here would be a false all-clear, so nothing is claimed; re-run with sufficient privileges.")}
+	}
+
+	var ls []listener
+	ls = append(ls, tcp4...)
+	ls = append(ls, tcp6...)
+	ls = append(ls, udp4...)
+	ls = append(ls, udp6...)
+
+	risky := map[string]struct {
 		sev   model.Severity
 		label string
 	}{
-		23:    {model.SevHigh, "telnet (cleartext)"},
-		21:    {model.SevMedium, "ftp (cleartext)"},
-		513:   {model.SevMedium, "rlogin"},
-		514:   {model.SevMedium, "rsh"},
-		6379:  {model.SevHigh, "redis (often unauthenticated)"},
-		27017: {model.SevHigh, "mongodb"},
-		9200:  {model.SevMedium, "elasticsearch"},
-		3306:  {model.SevMedium, "mysql exposed"},
-		5432:  {model.SevMedium, "postgres exposed"},
+		"tcp/23":    {model.SevHigh, "telnet (cleartext)"},
+		"tcp/21":    {model.SevMedium, "ftp (cleartext)"},
+		"tcp/513":   {model.SevMedium, "rlogin"},
+		"tcp/514":   {model.SevMedium, "rsh"},
+		"tcp/6379":  {model.SevHigh, "redis (often unauthenticated)"},
+		"tcp/27017": {model.SevHigh, "mongodb"},
+		"tcp/9200":  {model.SevMedium, "elasticsearch"},
+		"tcp/3306":  {model.SevMedium, "mysql exposed"},
+		"tcp/5432":  {model.SevMedium, "postgres exposed"},
+		"udp/69":    {model.SevHigh, "tftp (no authentication)"},
+		"udp/161":   {model.SevMedium, "snmp (often default community strings)"},
+		"udp/623":   {model.SevHigh, "ipmi (frequently unpatched)"},
+		"udp/137":   {model.SevMedium, "netbios name service"},
+		"udp/138":   {model.SevMedium, "netbios datagram service"},
+		"udp/111":   {model.SevMedium, "rpcbind"},
 	}
 
 	var out []model.Finding
-	seen := map[int]bool{}
+	seen := map[string]bool{}
 	var inventory []string
 	for _, l := range ls {
 		scope := "loopback/other"
@@ -596,16 +652,20 @@ func portsCheck(ctx *engine.Context) []model.Finding {
 			scope = "all interfaces"
 		}
 		inventory = append(inventory, fmt.Sprintf("%s/%d (%s)", l.proto, l.port, scope))
-		if r, ok := risky[l.port]; ok && l.allIf && !seen[l.port] {
-			seen[l.port] = true
-			out = append(out, fail(fmt.Sprintf("NET-PORT-%d", l.port), "network",
-				fmt.Sprintf("Risky service on port %d exposed on all interfaces", l.port),
+
+		key := fmt.Sprintf("%s/%d", family(l.proto), l.port)
+		if r, ok := risky[key]; ok && l.allIf && !seen[key] {
+			seen[key] = true
+			out = append(out, fail(
+				"NET-PORT-"+strings.ToUpper(family(l.proto))+"-"+strconv.Itoa(l.port), "network",
+				fmt.Sprintf("Risky service on %s port %d exposed on all interfaces", family(l.proto), l.port),
 				r.sev, r.label, "Bind to localhost, add authentication, or firewall the port."))
 		}
 	}
 	sort.Strings(inventory)
+	inventory = uniqueStrings(inventory)
 	out = append(out, info("NET-LISTEN", "network",
-		fmt.Sprintf("%d listening TCP socket(s)", len(ls)),
+		fmt.Sprintf("%d listening socket(s), TCP and UDP", len(inventory)),
 		"Every open port is attack surface - confirm each is expected.", cap50(inventory)...))
 	return out
 }
