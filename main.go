@@ -82,6 +82,7 @@ func runScan() int {
 	exceptions := fs.String("exceptions", "argus-exceptions.json", "file of knowingly accepted findings")
 	roots := fs.String("roots", "", "comma-separated filesystem roots to scan (overrides defaults)")
 	quick := fs.Bool("quick", false, "skip slow filesystem walks (SUID / world-writable)")
+	profile := fs.String("profile", "workstation", "machine class: "+strings.Join(engine.ProfileNames(), ", "))
 	verifyPkgs := fs.Bool("verify-packages", false, "compare every installed file against the distribution's digests (Linux, slow)")
 	noColor := fs.Bool("no-color", false, "disable coloured console output")
 	quiet := fs.Bool("quiet", false, "suppress per-check progress on stderr")
@@ -90,9 +91,14 @@ func runScan() int {
 	failIntegrity := fs.Int("fail-under-integrity", -1, "exit with code 3 if the integrity score is below this value")
 	_ = fs.Parse(os.Args[1:])
 
+	if _, err := engine.LookupProfile(*profile); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return 2
+	}
 	cfg := engine.Config{
 		BaselinePath:   *baseline,
 		ExceptionsPath: *exceptions,
+		Profile:        *profile,
 		Quick:          *quick,
 		VerifyPackages: *verifyPkgs,
 	}
@@ -363,6 +369,7 @@ func runServe() int {
 	baseline := fs.String("baseline", "argus-baseline.json", "file-integrity baseline path")
 	exceptions := fs.String("exceptions", "argus-exceptions.json", "file of knowingly accepted findings")
 	quick := fs.Bool("quick", false, "skip slow filesystem walks")
+	profile := fs.String("profile", "workstation", "machine class: "+strings.Join(engine.ProfileNames(), ", "))
 	verifyPkgs := fs.Bool("verify-packages", false, "check installed files against the distro digests (Linux)")
 	noOpen := fs.Bool("no-open", false, "print the address instead of opening a browser")
 	reportPath := fs.String("report", "", "serve an existing JSON report instead of running a new scan")
@@ -387,6 +394,7 @@ func runServe() int {
 	runner := engine.New(checks.All(), engine.Config{
 		BaselinePath:   *baseline,
 		ExceptionsPath: *exceptions,
+		Profile:        *profile,
 		Quick:          *quick,
 		VerifyPackages: *verifyPkgs,
 	})
@@ -444,6 +452,7 @@ Scan flags:
   --exceptions <path>         Accepted-findings file.
   --roots <csv>               Override filesystem roots to scan.
   --quick                     Skip slow filesystem walks.
+  --profile <name>            Machine class: workstation, audit, container.
   --verify-packages           Check installed files against the distro digests (Linux).
   --no-color                  Disable coloured output.
   --quiet                     Hide per-check progress.
