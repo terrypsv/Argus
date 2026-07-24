@@ -160,6 +160,8 @@ type HostInfo struct {
 type Report struct {
 	Tool       string         `json:"tool"`
 	Version    string         `json:"version"`
+	Author     string         `json:"author,omitempty"`
+	Repository string         `json:"repository,omitempty"`
 	Host       HostInfo       `json:"host"`
 	StartedAt  time.Time      `json:"started_at"`
 	FinishedAt time.Time      `json:"finished_at"`
