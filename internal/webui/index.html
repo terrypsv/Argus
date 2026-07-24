@@ -94,6 +94,74 @@
   .axis .value .grade{margin-left:10px;font-size:18px}
   .axis .note{font-size:13px;color:var(--ink-soft)}
 
+  /* ---------- score composition ---------- */
+  .panel{margin:36px 0 0;padding-top:20px;border-top:1px solid var(--rule)}
+  .panel > h2{
+    font-family:var(--mono);font-size:11px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--ink-soft);margin:0 0 4px;font-weight:600;
+  }
+  .panel > .lede{margin:0 0 16px;font-size:13px;color:var(--ink-soft);max-width:62ch}
+
+  .ledger{display:grid;gap:18px}
+  .ledger .row .cap{
+    display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+    font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink-soft);margin-bottom:6px;
+  }
+  .ledger .row .cap b{color:var(--ink);font-size:14px;letter-spacing:0}
+  .scale{
+    display:flex;height:26px;background:var(--paper);
+    border:1px solid var(--rule);overflow:hidden;
+  }
+  .scale span{display:block;height:100%}
+  .scale .kept{background:var(--integrity)}
+  .row[data-axis="hardening"] .scale .kept{background:var(--hardening)}
+  .scale .lost{border-left:1px solid var(--paper)}
+  .scale .lost[data-sev="CRITICAL"]{background:var(--crit)}
+  .scale .lost[data-sev="HIGH"]{background:var(--high)}
+  .scale .lost[data-sev="MEDIUM"]{background:var(--med)}
+  .scale .lost[data-sev="LOW"]{background:var(--low)}
+  .scale .waived{background:repeating-linear-gradient(45deg,var(--accepted),var(--accepted) 3px,var(--paper) 3px,var(--paper) 6px)}
+  .deductions{
+    list-style:none;margin:8px 0 0;padding:0;
+    font-family:var(--mono);font-size:11.5px;color:var(--ink-soft);
+  }
+  .deductions li{display:flex;gap:10px;padding:2px 0}
+  .deductions .cost{min-width:42px;text-align:right;color:var(--ink);font-weight:700}
+  .deductions .none{color:var(--ink-soft);font-style:italic;font-family:var(--sans)}
+
+  /* ---------- exposure ---------- */
+  .exposure{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  @media (max-width:700px){.exposure{grid-template-columns:1fr}}
+  .zone h3{
+    font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;
+    margin:0 0 8px;font-weight:600;
+  }
+  .zone[data-zone="open"] h3{color:var(--high)}
+  .zone[data-zone="local"] h3{color:var(--low)}
+  .ports{display:flex;flex-wrap:wrap;gap:6px}
+  .port{
+    font-family:var(--mono);font-size:12px;
+    border:1px solid var(--rule);background:var(--paper);
+    padding:3px 8px;white-space:nowrap;
+  }
+  .zone[data-zone="open"] .port.wellknown{border-color:var(--high);color:var(--high);font-weight:700}
+  .port .proto{color:var(--ink-soft);font-size:10px;letter-spacing:.08em}
+
+  /* ---------- coverage ---------- */
+  .coverage{width:100%;border-collapse:collapse;font-size:13px}
+  .coverage th,.coverage td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--rule)}
+  .coverage th{
+    font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;
+    color:var(--ink-soft);font-weight:600;
+  }
+  .coverage td.num{font-family:var(--mono);text-align:right;width:1%}
+  .coverage .bar{display:flex;height:9px;min-width:110px;background:var(--paper);border:1px solid var(--rule)}
+  .coverage .bar span{display:block;height:100%}
+  .coverage .bar .ok{background:var(--low)}
+  .coverage .bar .open{background:var(--high)}
+  .coverage .bar .waived{background:var(--accepted)}
+
   /* ---------- filters ---------- */
   .filters{
     display:flex;flex-wrap:wrap;gap:8px;
@@ -211,6 +279,35 @@
     </div>
   </section>
 
+  <section class="panel" id="ledger-panel" hidden>
+    <h2>Composition du score</h2>
+    <p class="lede">Chaque constat ouvert retire des points selon sa severite.
+      La portion pleine est ce qui reste, les segments sont ce qui a ete perdu.</p>
+    <div class="ledger" id="ledger"></div>
+  </section>
+
+  <section class="panel" id="exposure-panel" hidden>
+    <h2>Surface d'ecoute</h2>
+    <p class="lede">La question n'est pas combien de sockets sont ouvertes, mais
+      lesquelles repondent a une machine distante. Les ports sous 1024 sont
+      signales : ce sont des services, pas des sockets applicatives.</p>
+    <div class="exposure" id="exposure"></div>
+  </section>
+
+  <section class="panel" id="coverage-panel" hidden>
+    <h2>Ou Argus a regarde</h2>
+    <p class="lede">Une categorie sans controle execute est un angle mort, pas
+      un satisfecit.</p>
+    <table class="coverage" id="coverage">
+      <thead><tr>
+        <th>Categorie</th><th>Repartition</th>
+        <th class="num">Reussis</th><th class="num">Ouverts</th>
+        <th class="num">Deroges</th><th class="num">Erreurs</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
   <nav class="filters" id="filters" aria-label="Filtrer les constats"></nav>
 
   <main id="findings"></main>
@@ -260,8 +357,141 @@
     axisValue("int-value", i);
     axisValue("hard-value", h);
     drawPlot(h.score || 0, i.score || 0);
+    buildLedger();
+    buildExposure();
+    buildCoverage();
     buildFilters();
     renderFindings();
+  }
+
+  function weightOf(sev){
+    var w = report.weights || {};
+    return typeof w[sev] === "number" ? w[sev] : 0;
+  }
+
+  function axisOfFinding(f){
+    /* Mirrors model.integrityPrefixes. Kept as a list rather than a category
+       test because KRN-TAINT is tampering while KRN-KERNEL-* is configuration. */
+    var INTEG = ["PROC-","INTEG-","RUN-","TASK-","CRON-","SVC-","LA-","ACC-",
+                 "SUID-","KEXT-","PKG-","KRN-TAINT","KRN-LDPRELOAD","KRN-ENVPRELOAD"];
+    for (var k = 0; k < INTEG.length; k++){
+      if (f.id.indexOf(INTEG[k]) === 0){ return "integrity"; }
+    }
+    return "hardening";
+  }
+
+  /* Where the points went. A score nobody can decompose is a number to argue
+     with, not a measurement to act on. */
+  function buildLedger(){
+    var axes = [
+      { key:"integrity",  label:"Integrite",    data: report.integrity || {} },
+      { key:"hardening",  label:"Durcissement", data: report.hardening || {} }
+    ];
+    var html = axes.map(function(ax){
+      var lost = report.findings.filter(function(f){
+        return !f.passed && f.severity !== "INFO" && !f.accepted &&
+               axisOfFinding(f) === ax.key;
+      }).sort(function(a,b){ return weightOf(b.severity) - weightOf(a.severity); });
+
+      var waived = report.findings.filter(function(f){
+        return f.accepted && axisOfFinding(f) === ax.key;
+      });
+
+      var seg = ['<span class="kept" style="width:' + (ax.data.score || 0) + '%"></span>'];
+      lost.forEach(function(f){
+        seg.push('<span class="lost" data-sev="' + esc(f.severity) + '" style="width:' +
+                 weightOf(f.severity) + '%" title="' + esc(f.id) + ' -' +
+                 weightOf(f.severity) + '"></span>');
+      });
+      waived.forEach(function(f){
+        seg.push('<span class="waived" style="width:' + weightOf(f.severity) +
+                 '%" title="' + esc(f.id) + ' derogé"></span>');
+      });
+
+      var items = lost.map(function(f){
+        return '<li><span class="cost">-' + weightOf(f.severity) + '</span>' +
+               '<span>' + esc(f.title) + ' <span style="opacity:.7">(' + esc(f.id) +
+               ')</span></span></li>';
+      });
+      waived.forEach(function(f){
+        items.push('<li><span class="cost">(-' + weightOf(f.severity) + ')</span>' +
+                   '<span>' + esc(f.title) + ' - derogation assumee, non decomptee</span></li>');
+      });
+      if (!items.length){
+        items.push('<li><span class="none">Aucune deduction sur cet axe.</span></li>');
+      }
+
+      return '<div class="row" data-axis="' + ax.key + '">' +
+               '<div class="cap"><span>' + ax.label + '</span>' +
+               '<b>' + (ax.data.score || 0) + ' / 100</b></div>' +
+               '<div class="scale">' + seg.join("") + "</div>" +
+               '<ul class="deductions">' + items.join("") + "</ul>" +
+             "</div>";
+    }).join("");
+
+    document.getElementById("ledger").innerHTML = html;
+    document.getElementById("ledger-panel").hidden = false;
+  }
+
+  /* Attack surface, not socket count. */
+  function buildExposure(){
+    var inv = report.findings.filter(function(f){ return f.id === "NET-LISTEN"; })[0];
+    if (!inv || !inv.evidence || !inv.evidence.length){ return; }
+
+    var open = [], local = [];
+    inv.evidence.forEach(function(line){
+      var m = /^(tcp6?|udp6?)\/(\d+)\s*\((.+)\)\s*$/.exec(line.trim());
+      if (!m){ return; }
+      var entry = { proto: m[1], port: parseInt(m[2], 10), scope: m[3] };
+      (/all interfaces/i.test(entry.scope) ? open : local).push(entry);
+    });
+    if (!open.length && !local.length){ return; }
+
+    var byPort = function(a, b){ return a.port - b.port || a.proto.localeCompare(b.proto); };
+    var chips = function(list){
+      if (!list.length){ return '<p class="lede" style="margin:0">Aucune.</p>'; }
+      return '<div class="ports">' + list.sort(byPort).map(function(e){
+        return '<span class="port' + (e.port < 1024 ? " wellknown" : "") + '">' +
+               e.port + ' <span class="proto">' + esc(e.proto) + "</span></span>";
+      }).join("") + "</div>";
+    };
+
+    document.getElementById("exposure").innerHTML =
+      '<div class="zone" data-zone="open"><h3>Joignable depuis le reseau (' +
+        open.length + ")</h3>" + chips(open) + "</div>" +
+      '<div class="zone" data-zone="local"><h3>Boucle locale seulement (' +
+        local.length + ")</h3>" + chips(local) + "</div>";
+    document.getElementById("exposure-panel").hidden = false;
+  }
+
+  /* Blind spots are worth as much as findings. */
+  function buildCoverage(){
+    var cats = {};
+    report.findings.forEach(function(f){
+      var c = cats[f.category] || (cats[f.category] = { ok:0, open:0, waived:0, err:0 });
+      if (f.error){ c.err++; }
+      if (f.accepted){ c.waived++; }
+      else if (f.passed){ c.ok++; }
+      else if (f.severity !== "INFO"){ c.open++; }
+    });
+
+    var rows = Object.keys(cats).sort().map(function(name){
+      var c = cats[name], total = c.ok + c.open + c.waived || 1;
+      var pct = function(n){ return (n / total) * 100; };
+      return "<tr><td>" + esc(name) + "</td>" +
+             '<td><div class="bar">' +
+               '<span class="ok" style="width:' + pct(c.ok) + '%"></span>' +
+               '<span class="open" style="width:' + pct(c.open) + '%"></span>' +
+               '<span class="waived" style="width:' + pct(c.waived) + '%"></span>' +
+             "</div></td>" +
+             '<td class="num">' + c.ok + "</td>" +
+             '<td class="num">' + c.open + "</td>" +
+             '<td class="num">' + c.waived + "</td>" +
+             '<td class="num">' + c.err + "</td></tr>";
+    }).join("");
+
+    document.querySelector("#coverage tbody").innerHTML = rows;
+    document.getElementById("coverage-panel").hidden = false;
   }
 
   function axisValue(id, a){
