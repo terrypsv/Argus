@@ -139,6 +139,12 @@ func (r *Runner) Run() model.Report {
 	rep.Grade = grade(rep.Score)
 	rep.Verdict = verdict(rep.Hardening, rep.Integrity)
 	rep.Counts = countFindings(rep.Findings)
+	rep.Weights = map[string]float64{}
+	for _, sev := range []model.Severity{
+		model.SevCritical, model.SevHigh, model.SevMedium, model.SevLow, model.SevInfo,
+	} {
+		rep.Weights[sev.String()] = sev.Weight()
+	}
 
 	sortFindings(rep.Findings)
 	for i := range rep.Findings {

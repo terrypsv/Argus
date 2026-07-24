@@ -158,20 +158,23 @@ type HostInfo struct {
 
 // Report is the full output of a scan.
 type Report struct {
-	Tool       string         `json:"tool"`
-	Version    string         `json:"version"`
-	Author     string         `json:"author,omitempty"`
-	Repository string         `json:"repository,omitempty"`
-	Host       HostInfo       `json:"host"`
-	StartedAt  time.Time      `json:"started_at"`
-	FinishedAt time.Time      `json:"finished_at"`
-	DurationMS int64          `json:"duration_ms"`
-	Score      int            `json:"score"` // overall = the lower of the two axes
-	Grade      string         `json:"grade"` // A..F, derived from Score
-	Hardening  AxisScore      `json:"hardening"`
-	Integrity  AxisScore      `json:"integrity"`
-	Verdict    string         `json:"verdict"`
-	Suppressed int            `json:"suppressed,omitempty"` // findings neutralised by an accepted exception
-	Counts     map[string]int `json:"counts"`
-	Findings   []Finding      `json:"findings"`
+	Tool       string    `json:"tool"`
+	Version    string    `json:"version"`
+	Author     string    `json:"author,omitempty"`
+	Repository string    `json:"repository,omitempty"`
+	Host       HostInfo  `json:"host"`
+	StartedAt  time.Time `json:"started_at"`
+	FinishedAt time.Time `json:"finished_at"`
+	DurationMS int64     `json:"duration_ms"`
+	Score      int       `json:"score"` // overall = the lower of the two axes
+	Grade      string    `json:"grade"` // A..F, derived from Score
+	Hardening  AxisScore `json:"hardening"`
+	Integrity  AxisScore `json:"integrity"`
+	Verdict    string    `json:"verdict"`
+	Suppressed int       `json:"suppressed,omitempty"` // findings neutralised by an accepted exception
+	// Weights publishes the penalty attached to each severity, so a reader of
+	// the JSON can recompute the score instead of trusting it.
+	Weights  map[string]float64 `json:"weights"`
+	Counts   map[string]int     `json:"counts"`
+	Findings []Finding          `json:"findings"`
 }
