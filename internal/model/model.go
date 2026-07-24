@@ -35,7 +35,7 @@ func (a Axis) String() string {
 // taint and preload hooks (listed explicitly) are tampering evidence.
 var integrityPrefixes = []string{
 	"PROC-", "INTEG-", "RUN-", "TASK-", "CRON-", "SVC-", "LA-",
-	"ACC-", "SUID-", "KEXT-",
+	"ACC-", "SUID-", "KEXT-", "PKG-",
 	"KRN-TAINT", "KRN-LDPRELOAD", "KRN-ENVPRELOAD",
 }
 
