@@ -63,6 +63,7 @@ func runScan() int {
 	exceptions := fs.String("exceptions", "argus-exceptions.json", "file of knowingly accepted findings")
 	roots := fs.String("roots", "", "comma-separated filesystem roots to scan (overrides defaults)")
 	quick := fs.Bool("quick", false, "skip slow filesystem walks (SUID / world-writable)")
+	verifyPkgs := fs.Bool("verify-packages", false, "compare every installed file against the distribution's digests (Linux, slow)")
 	noColor := fs.Bool("no-color", false, "disable coloured console output")
 	quiet := fs.Bool("quiet", false, "suppress per-check progress on stderr")
 	failUnder := fs.Int("fail-under", -1, "exit with code 2 if the overall score is below this value (for CI)")
@@ -73,6 +74,7 @@ func runScan() int {
 		BaselinePath:   *baseline,
 		ExceptionsPath: *exceptions,
 		Quick:          *quick,
+		VerifyPackages: *verifyPkgs,
 	}
 	if *roots != "" {
 		cfg.ScanRoots = splitCSV(*roots)
@@ -374,6 +376,7 @@ Scan flags:
   --exceptions <path>         Accepted-findings file.
   --roots <csv>               Override filesystem roots to scan.
   --quick                     Skip slow filesystem walks.
+  --verify-packages           Check installed files against the distro digests (Linux).
   --no-color                  Disable coloured output.
   --quiet                     Hide per-check progress.
   --fail-under <n>            Exit 2 if the overall score < n.
