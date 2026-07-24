@@ -21,9 +21,15 @@ import (
 	"argus/internal/engine"
 	"argus/internal/model"
 	"argus/internal/report"
+	"argus/internal/webui"
 )
 
 func main() {
+	// A double-click gives no chance to type a subcommand, so offer the choice
+	// once, there and only there. From a terminal or a CI job this is silent.
+	if len(os.Args) == 1 {
+		offerBrowserReport()
+	}
 	code := run()
 	// os.Exit skips deferred calls, so the pause has to happen here, after the
 	// command has produced all of its output.
@@ -51,6 +57,8 @@ func run() int {
 		return runExceptions()
 	case "diff":
 		return runDiff()
+	case "serve":
+		return runServe()
 	case "version":
 		fmt.Printf("Argus %s (%s/%s)\n", engine.Version, osName(), archName())
 		fmt.Printf("Editeur : %s\n%s\n", engine.Author, engine.Repository)
@@ -343,6 +351,32 @@ func runDiff() int {
 	return 0
 }
 
+// runServe scans, then hands the result to the local browser. The listener is
+// loopback-only and token-protected: see internal/webui for why.
+func runServe() int {
+	fs := flag.NewFlagSet("serve", flag.ExitOnError)
+	baseline := fs.String("baseline", "argus-baseline.json", "file-integrity baseline path")
+	exceptions := fs.String("exceptions", "argus-exceptions.json", "file of knowingly accepted findings")
+	quick := fs.Bool("quick", false, "skip slow filesystem walks")
+	verifyPkgs := fs.Bool("verify-packages", false, "check installed files against the distro digests (Linux)")
+	noOpen := fs.Bool("no-open", false, "print the address instead of opening a browser")
+	_ = fs.Parse(os.Args[1:])
+
+	runner := engine.New(checks.All(), engine.Config{
+		BaselinePath:   *baseline,
+		ExceptionsPath: *exceptions,
+		Quick:          *quick,
+		VerifyPackages: *verifyPkgs,
+	})
+	rep := runner.Run()
+
+	if err := webui.Serve(rep, os.Stdout, !*noOpen); err != nil {
+		fmt.Fprintf(os.Stderr, "cannot start the local report server: %v\n", err)
+		return 1
+	}
+	return 0
+}
+
 func osName() string   { return runtime.GOOS }
 func archName() string { return runtime.GOARCH }
 
@@ -376,7 +410,7 @@ Usage:
   argus accept <ID> --reason  Accept a reviewed finding as a known exception.
   argus unaccept <ID>         Revoke a previously accepted finding.
   argus exceptions            List what is currently being carried.
-  argus diff <old> <new>      Compare two JSON reports.
+  argus diff <old> <new>      Compare two JSON reports.\n  argus serve                 Scan, then open the report in your browser.
   argus version               Print the version.
 
 Scan flags:
