@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"sort"
+	"strings"
 	"time"
 
 	"argus/internal/model"
@@ -38,6 +39,9 @@ type Config struct {
 	Quick bool
 	// ExceptionsPath points at the file of knowingly accepted findings.
 	ExceptionsPath string
+	// Profile names the class of machine being scanned, which decides the
+	// built-in waivers that apply. Empty means "workstation".
+	Profile string
 	// VerifyPackages enables comparison of every installed file against the
 	// digests published by the distribution. Slow, but not vulnerable to the
 	// trust-on-first-use weakness of a locally generated baseline.
@@ -124,6 +128,23 @@ func (r *Runner) Run() model.Report {
 	if err != nil {
 		r.ctx.logf("exceptions: %v", err)
 	}
+	// A profile contributes waivers of its own. The user's file wins on
+	// conflict: an explicit local decision outranks a class default.
+	if prof, perr := LookupProfile(r.ctx.Config.Profile); perr == nil {
+		rep.Profile = prof.Name
+		declared := map[string]bool{}
+		for _, e := range ef.Exceptions {
+			declared[strings.ToUpper(strings.TrimSpace(e.ID))] = true
+		}
+		for _, e := range prof.exceptions() {
+			if !declared[strings.ToUpper(e.ID)] {
+				ef.Exceptions = append(ef.Exceptions, e)
+			}
+		}
+	} else {
+		r.ctx.logf("%v", perr)
+	}
+
 	suppressed, expired := applyExceptions(rep.Findings, ef, time.Now())
 	rep.Suppressed = suppressed
 	for _, id := range expired {

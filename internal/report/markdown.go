@@ -17,6 +17,9 @@ func Markdown(w io.Writer, rep model.Report) {
 		rep.Author, rep.Repository)
 
 	fmt.Fprintf(w, "## Verdict\n\n**%s**\n\n", rep.Verdict)
+	if rep.Profile != "" && rep.Profile != "workstation" {
+		fmt.Fprintf(w, "Scanned under the `%s` profile: some controls are waived by design for this class of machine.\n\n", rep.Profile)
+	}
 
 	fmt.Fprintf(w, "| Axis | Score | Grade | Open issues | Accepted | Without exceptions |\n| --- | --- | --- | --- | --- | --- |\n")
 	fmt.Fprintf(w, "| Hardening - is this host configured to resist attack? | %d / 100 | %s | %d | %d | %d (%s) |\n",
