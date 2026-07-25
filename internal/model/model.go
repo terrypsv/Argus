@@ -86,6 +86,25 @@ func (s Severity) String() string {
 	}
 }
 
+// Abbrev is a fixed four-character tag for aligned columns. Reporters used to
+// slice String()[:4], which panics on "LOW" (three characters); this makes the
+// short form a property of the type instead of a fragile assumption at the call
+// site.
+func (s Severity) Abbrev() string {
+	switch s {
+	case SevCritical:
+		return "CRIT"
+	case SevHigh:
+		return "HIGH"
+	case SevMedium:
+		return "MED "
+	case SevLow:
+		return "LOW "
+	default:
+		return "INFO"
+	}
+}
+
 // Weight is the number of points a single failed finding of this severity
 // removes from the base score of 100.
 func (s Severity) Weight() float64 {

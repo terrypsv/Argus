@@ -99,7 +99,7 @@ func Console(w io.Writer, rep model.Report, color bool) {
 			if f.Accepted == "" {
 				continue
 			}
-			fmt.Fprintf(w, "  %s%-5s %s  (%s)%s\n", p.yellow, f.Severity.String()[:4], f.Title, f.ID, p.reset)
+			fmt.Fprintf(w, "  %s%-5s %s  (%s)%s\n", p.yellow, f.Severity.Abbrev(), f.Title, f.ID, p.reset)
 			fmt.Fprintf(w, "        %sreason: %s%s\n", p.gray, f.Accepted, p.reset)
 		}
 	}

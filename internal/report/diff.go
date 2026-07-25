@@ -270,7 +270,7 @@ func ConsoleDiff(w io.Writer, d Diff, color bool) {
 				continue
 			}
 			fmt.Fprintf(w, "  %s%-5s%s %s  (%s)\n",
-				s.colour, c.Severity.String()[:4], p.reset, c.Title, c.ID)
+				s.colour, c.Severity.Abbrev(), p.reset, c.Title, c.ID)
 		}
 		fmt.Fprintln(w)
 	}
