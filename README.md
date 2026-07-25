@@ -1,5 +1,3 @@
-<img width="558" height="255" alt="ascii-art-text" src="https://github.com/user-attachments/assets/9664a963-d971-4bee-8960-ebe632a746d4" />
-
 # Argus
 
 **Scanner de posture de sécurité multiplateforme.** Argus audite le noyau, les
@@ -148,18 +146,25 @@ GOOS=windows GOARCH=amd64 go build -o dist/argus-windows.exe  .
 ## Utilisation
 
 ```text
-argus [scan] [options]      Lance un scan. Affiche les deux scores.
+argus                       Lance depuis un terminal ou en double-clic : propose
+                            le rapport navigateur ou le rapport console.
+argus scan [options]        Scan, rapport console. Affiche les deux scores.
+argus serve [options]       Scan, puis rapport interactif dans le navigateur.
 argus baseline              Enregistre les empreintes SHA-256 des fichiers critiques.
 argus accept <ID> --reason  Accepte un finding examiné comme dérogation connue.
 argus unaccept <ID>         Révoque une dérogation.
 argus exceptions            Liste les dérogations en cours.
 argus diff <ancien> <nouveau>  Compare deux rapports JSON.
-argus version               Affiche la version.
+argus version               Affiche la version et l'éditeur.
 ```
 
 Sous Linux et macOS, préfixe par `sudo` pour débloquer les contrôles réservés à
 root. Sous Windows, lance un terminal **administrateur** pour BitLocker,
 Defender et les ruches de registre protégées.
+
+Sans sous-commande, depuis un terminal ou par double-clic, Argus propose de
+choisir entre le rapport navigateur et le rapport console. Depuis un tube, une
+tâche planifiée ou une CI, il scanne directement sans rien demander.
 
 ### Un cycle complet
 
@@ -190,9 +195,11 @@ sudo ./argus scan --out ./reports
 | `--baseline <chemin>` | Fichier d'empreintes de référence. |
 | `--exceptions <chemin>` | Fichier des dérogations. |
 | `--roots <liste>` | Remplace les racines de système de fichiers scannées. |
+| `--profile <nom>` | Classe de machine : `workstation`, `audit`, `container`. |
 | `--quick` | Saute les parcours de disque lents (SUID, world-writable). |
 | `--no-color` | Désactive la couleur. |
 | `--quiet` | Masque la progression contrôle par contrôle. |
+| `--brief` | Une ligne analysable au lieu du rapport complet. |
 | `--fail-under <n>` | Code de sortie 2 si le score global est inférieur à n. |
 | `--fail-under-integrity <n>` | Code de sortie 3 si le score d'intégrité est inférieur à n. |
 
@@ -324,6 +331,79 @@ Trois filtres évitent le bruit :
 
 ---
 
+## Rapport interactif
+
+`argus serve` scanne puis ouvre le rapport dans le navigateur. Le serveur est
+volontairement contraint, parce que c'est un outil d'audit qui expose un port :
+
+- il écoute uniquement sur `127.0.0.1`, sur un port choisi par le noyau ;
+- chaque requête exige un jeton aléatoire de 32 octets, comparé en temps
+  constant, pour qu'aucun autre processus local ne puisse lire le rapport ;
+- il s'éteint tout seul quand l'onglet est fermé ;
+- la page ne charge rien de l'extérieur (`Content-Security-Policy: default-src
+  'none'`), tout est embarqué dans le binaire.
+
+L'écran central est un plan à deux axes : durcissement en abscisse, intégrité en
+ordonnée, la machine posée dessus comme un point de mesure. Il décompose aussi
+le score constat par constat, sépare les ports joignables depuis le réseau de
+ceux limités à la boucle locale, et montre les catégories où aucun contrôle n'a
+tourné.
+
+Sous Linux et macOS, le scan exige root mais lancer un navigateur en root est
+une mauvaise pratique. On scanne avec `sudo`, on écrit le JSON, on l'affiche
+avec son compte :
+
+```bash
+sudo ./argus scan --json ~/argus.json
+./argus serve --report ~/argus.json
+```
+
+## Profils de machine
+
+Un contrôle de durcissement qu'une machine ne satisfait pas volontairement n'est
+pas un échec, c'est une décision : une station d'audit a besoin de `ptrace` pour
+déboguer, un conteneur ne peut pas régler les sysctls du noyau. Les noter comme
+des fautes produit un résultat durablement rouge, que plus personne ne lit.
+
+```bash
+sudo ./argus scan --profile audit
+```
+
+| Profil | Pour | Dérogations |
+| --- | --- | --- |
+| `workstation` (défaut) | Machine polyvalente | Aucune, tout s'applique. |
+| `audit` | Station de pentest ou d'analyse | ptrace, kptr, dmesg, `/tmp` et `/dev/shm` exécutables. Le pare-feu reste exigé. |
+| `container` | Charge conteneurisée | sysctls noyau, options de montage et filtrage, qui relèvent de l'hôte. |
+
+Un profil n'est **pas** un second barème. Il déclare des dérogations intégrées
+qui empruntent la même mécanique que les dérogations manuelles : le constat
+reste visible, porte sa justification, et le score brut affiche toujours ce que
+la machine vaudrait sans lui. Une règle est verrouillée : aucun profil ne peut
+déroger un constat d'intégrité. Une classe de machine peut assumer d'être peu
+durcie, aucune n'a le droit d'être altérée.
+
+## Référentiels
+
+Un finding sans référence est une opinion ; rattaché à un contrôle publié, il
+devient auditable. Chaque constat porte, quand la correspondance a été vérifiée,
+ses références **MITRE ATT&CK** (que fait l'attaquant, pour corréler avec les
+détections d'un SOC) et **ANSSI-BP-028** (durcissement GNU/Linux). Une
+correspondance n'est ajoutée qu'après vérification dans le document publié :
+une référence fausse ferait remonter une décision jusqu'à un texte qui ne dit
+pas cela.
+
+## Supervision
+
+`--brief` produit une seule ligne analysable, pour une tâche planifiée qui veut
+une valeur à filtrer plutôt qu'une page à lire :
+
+```text
+host=ASUS-EB-TP hardening=86/B integrity=100/A open=2 accepted=0 errors=0 verdict="..."
+```
+
+Combiné à `argus diff --fail-on-change` sur deux scans successifs, cela
+transforme Argus en détecteur de dérive quotidien.
+
 ## Notation
 
 Chaque axe part de **100**. Chaque contrôle en échec retire des points selon sa
@@ -352,10 +432,14 @@ internal/
   model/     model.go       Finding, Severity, Axis, Report - le vocabulaire commun
   engine/    engine.go      exécute les contrôles, calcule les deux scores
              exceptions.go  chargement, application et révocation des dérogations
+             profiles.go    profils de machine (dérogations intégrées)
              host_*.go      chaînes noyau/plateforme par OS
-  report/    console.go     rapport console coloré
+  report/    console.go     rapport console coloré, jauges, sortie brève
              json.go        rapport JSON
              markdown.go    rapport Markdown
+             diff.go        comparaison de deux rapports
+  webui/     webui.go       serveur local (loopback, jeton, extinction auto)
+             index.html     page interactive embarquée
   checks/    util.go        helpers partagés (exec, lecture fichier, parcours borné)
              common.go      infos système et registre des contrôles
              disk.go        occupation disque multiplateforme
@@ -417,8 +501,10 @@ développé depuis une seule machine a besoin de ce filet.
 ## Pistes d'évolution
 
 - Correspondance de signatures façon YARA sur les fichiers suspects
-- Vérification via le gestionnaire de paquets (`dpkg --verify`, `rpm -Va`)
 - Sortie NDJSON pour ingestion SIEM
+- Trajectoire dans le temps : tracer le déplacement de la machine sur le plan à
+  deux axes au fil des scans
+- Élargissement de la couverture macOS (comptes, SSH, anomalies de processus)
 - Validation des contrôles macOS sur matériel réel
 
 Contributions bienvenues : ouvre une issue ou une pull request.
