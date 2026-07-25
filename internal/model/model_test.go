@@ -62,3 +62,13 @@ func TestSeverityWeights(t *testing.T) {
 		}
 	}
 }
+
+// The reporters print a fixed-width tag for each severity. This is the bug that
+// a LOW finding in an accepted section triggered: String()[:4] panics on "LOW".
+func TestSeverityAbbrevIsAlwaysFourChars(t *testing.T) {
+	for _, s := range []Severity{SevInfo, SevLow, SevMedium, SevHigh, SevCritical} {
+		if got := s.Abbrev(); len(got) != 4 {
+			t.Errorf("Abbrev(%v) = %q (%d chars), want exactly 4", s, got, len(got))
+		}
+	}
+}
