@@ -256,18 +256,30 @@ func signedBy(program string) (authority string, valid bool) {
 	if _, err := runCmd(10*time.Second, "codesign", "--verify", "--strict", program); err != nil {
 		return "", false
 	}
-	// codesign writes its description to stderr, so stdout alone comes back
-	// empty and the authority would be lost.
-	out, err := runCmdCombined(10*time.Second, "codesign", "-dv", program)
+	// Two things matter here. codesign writes its description to stderr, so
+	// stdout alone comes back empty; and the certificate chain only appears at
+	// verbosity 2, so a single -v reports no publisher at all.
+	out, err := runCmdCombined(10*time.Second, "codesign", "-d", "--verbose=2", program)
 	if err == nil {
+		var teamID, identifier string
 		for _, l := range strings.Split(out, "\n") {
 			l = strings.TrimSpace(l)
-			if strings.HasPrefix(l, "Authority=") {
+			switch {
+			case strings.HasPrefix(l, "Authority="):
+				// The first authority is the leaf: the entity that actually
+				// signed, rather than the CA that vouched for it.
 				return strings.TrimPrefix(l, "Authority="), true
+			case strings.HasPrefix(l, "TeamIdentifier=") && teamID == "":
+				teamID = strings.TrimPrefix(l, "TeamIdentifier=")
+			case strings.HasPrefix(l, "Identifier=") && identifier == "":
+				identifier = strings.TrimPrefix(l, "Identifier=")
 			}
 		}
-		if strings.Contains(out, "flags=") && strings.Contains(out, "adhoc") {
-			return "ad-hoc signature (no publisher)", true
+		if teamID != "" && !strings.EqualFold(teamID, "not set") {
+			return "team " + teamID, true
+		}
+		if identifier != "" {
+			return "ad-hoc, identifier " + identifier, true
 		}
 	}
 	return "valid signature, publisher not reported", true
