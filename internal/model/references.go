@@ -85,6 +85,16 @@ var exactReferences = map[string][]Reference{
 	"SSH-PWAUTH": {
 		mitre("T1021.004", "SSH"),
 	},
+	"SSH-REMOTE":   {mitre("T1021.004", "SSH")},
+	"SSH-ROOT":     {mitre("T1021.004", "SSH")},
+	"SSH-EMPTYPW":  {mitre("T1021.004", "SSH")},
+	"GUEST-ON":     {mitre("T1078.003", "Local Accounts")},
+	"VNC-ON":       {mitre("T1021.005", "VNC")},
+	"ARD-ALLUSERS": {mitre("T1021.005", "VNC")},
+	// Disabling the signed system volume is a deliberate weakening of the
+	// platform's code-signing enforcement, not a configuration preference.
+	"SSV-OFF":       {mitre("T1553.006", "Code Signing Policy Modification")},
+	"SYSEXT-ACTIVE": {mitre("T1547.006", "Kernel Modules and Extensions")},
 
 	// --- Defences -----------------------------------------------------------
 	"AV-RTP":  {mitre("T1562.001", "Disable or Modify Tools")},
