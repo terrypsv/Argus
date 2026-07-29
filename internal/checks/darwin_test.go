@@ -2,7 +2,10 @@
 
 package checks
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 const vmwarePlist = `<?xml version="1.0" encoding="UTF-8"?>
 <plist version="1.0">
@@ -75,5 +78,11 @@ func TestSignedByAcceptsASystemBinary(t *testing.T) {
 	}
 	if authority == "" {
 		t.Error("a valid signature should report an authority")
+	}
+	// Locks the bug this test failed to catch: codesign only prints the
+	// certificate chain at verbosity 2, so a single -v silently produced the
+	// placeholder instead of the real signer.
+	if strings.Contains(authority, "not reported") {
+		t.Errorf("the signing authority was not extracted, got %q", authority)
 	}
 }
