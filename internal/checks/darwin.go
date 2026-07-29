@@ -30,6 +30,7 @@ func osChecks() []check {
 		{Name: "accounts", Category: "accounts", Fn: macAccounts},
 		{Name: "remote-access", Category: "ssh", Fn: macRemoteAccess},
 		{Name: "system-integrity", Category: "hardening", Fn: macSystemIntegrity},
+		{Name: "process-anomalies", Category: "process", Fn: macProcesses},
 	}
 }
 
