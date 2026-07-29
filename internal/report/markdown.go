@@ -78,6 +78,9 @@ func Markdown(w io.Writer, rep model.Report) {
 			if f.Remediation != "" {
 				fmt.Fprintf(w, "- **Remediation:** %s\n", f.Remediation)
 			}
+			if f.Superseded != "" {
+				fmt.Fprintf(w, "- **Counted once, through:** `%s`\n", f.Superseded)
+			}
 			if len(f.References) > 0 {
 				var refs []string
 				for _, r := range f.References {

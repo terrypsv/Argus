@@ -131,6 +131,9 @@ func printFinding(w io.Writer, p palette, f model.Finding) {
 	if f.Remediation != "" {
 		fmt.Fprintf(w, "        %s→ %s%s\n", p.cyan, f.Remediation, p.reset)
 	}
+	if f.Superseded != "" {
+		fmt.Fprintf(w, "        %scounted once, through %s%s\n", p.gray, f.Superseded, p.reset)
+	}
 	if len(f.References) > 0 {
 		var refs []string
 		for _, r := range f.References {
@@ -156,6 +159,9 @@ func gauge(w io.Writer, p palette, label string, a model.AxisScore,
 	for _, f := range findings {
 		if f.Passed || f.Severity == model.SevInfo || model.AxisOf(f) != axis {
 			continue
+		}
+		if f.Superseded != "" {
+			continue // charged once, through the finding it points at
 		}
 		if f.Accepted != "" {
 			waived = append(waived, f)

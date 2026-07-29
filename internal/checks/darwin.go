@@ -171,7 +171,7 @@ func macPorts(ctx *engine.Context) []model.Finding {
 		inventory = append(inventory, fmt.Sprintf("tcp/%d (%s)", port, scope))
 		if r, ok := risky[port]; ok && allIf && !seen[port] {
 			seen[port] = true
-			findings = append(findings, fail(fmt.Sprintf("NET-PORT-%d", port), "network",
+			findings = append(findings, fail(fmt.Sprintf("NET-PORT-TCP-%d", port), "network",
 				fmt.Sprintf("%s (port %d) exposed on all interfaces", r.label, port),
 				r.sev, "Reachable from any network.", "Restrict via firewall or disable the service."))
 		}
