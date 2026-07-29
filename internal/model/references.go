@@ -64,6 +64,7 @@ var exactReferences = map[string][]Reference{
 
 	// --- Tampering and execution --------------------------------------------
 	"PROC-MEMFD":    {mitre("T1620", "Reflective Code Loading")},
+	"PROC-TEMPEXEC": {mitre("T1036.005", "Match Legitimate Name or Location")},
 	"KRN-TAINT":     {mitre("T1014", "Rootkit")},
 	"KRN-LDPRELOAD": {mitre("T1574.006", "Dynamic Linker Hijacking")},
 	"KRN-ENVPRELOAD": {
