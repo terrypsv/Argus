@@ -135,34 +135,66 @@ func macRemoteAccess(ctx *engine.Context) []model.Finding {
 		out = append(out, macSSHConfig()...)
 	}
 
-	// --- Apple Remote Desktop -----------------------------------------------
-	if fileExists("/Library/Preferences/com.apple.RemoteManagement.plist") {
-		state, rErr := runCmd(10*time.Second, "defaults", "read",
-			"/Library/Preferences/com.apple.RemoteManagement", "ARD_AllLocalUsers")
-		if rErr == nil && strings.TrimSpace(state) == "1" {
-			out = append(out, fail("ARD-ALLUSERS", "network",
-				"Remote Management is open to all local users", model.SevHigh,
-				"Apple Remote Desktop grants screen control and remote command execution to every local account.",
-				"Restrict it to named users, or disable it in System Settings > General > Sharing."))
+	// --- Remote Management and Screen Sharing --------------------------------
+	// Both are driven by launchd, so the launchd state is the authority. The
+	// spelling of that state changed across macOS releases, which is why both
+	// generations are accepted below rather than one guessed at.
+	if disabled, dErr := runCmdCombined(10*time.Second, "launchctl", "print-disabled", "system"); dErr == nil {
+		if on, known := launchdEnabled(disabled, "com.apple.screensharing"); known && on {
+			out = append(out, fail("VNC-ON", "network",
+				"Screen Sharing is enabled", model.SevMedium,
+				"The desktop is reachable over VNC, a protocol whose macOS implementation authenticates but does not protect the session end to end.",
+				"Disable it in System Settings > General > Sharing if unused."))
 		}
-	}
-
-	// --- Screen Sharing ------------------------------------------------------
-	if sharing, sErr := runCmd(10*time.Second, "launchctl", "print-disabled", "system"); sErr == nil {
-		// launchctl reports "=> disabled" or "=> enabled" per label. Only a
-		// clearly enabled screen-sharing service is worth reporting.
-		for _, l := range strings.Split(sharing, "\n") {
-			if strings.Contains(l, "com.apple.screensharing") && strings.Contains(l, "false") {
-				out = append(out, fail("VNC-ON", "network",
-					"Screen Sharing is enabled", model.SevMedium,
-					"The desktop is reachable over VNC.",
+		for _, label := range []string{"com.apple.RemoteDesktop.agent", "com.apple.RemoteDesktop"} {
+			if on, known := launchdEnabled(disabled, label); known && on {
+				out = append(out, fail("RM-ON", "network",
+					"Remote Management (ARD) is enabled", model.SevMedium,
+					"Apple Remote Desktop allows screen control and remote command execution.",
 					"Disable it in System Settings > General > Sharing if unused."))
 				break
 			}
 		}
 	}
 
+	// Access granted to every local account is a much broader grant than access
+	// granted to named users, so it is reported separately and more severely.
+	if allUsers, aErr := runCmd(10*time.Second, "defaults", "read",
+		"/Library/Preferences/com.apple.RemoteManagement", "ARD_AllLocalUsers"); aErr == nil {
+		if strings.TrimSpace(allUsers) == "1" {
+			out = append(out, fail("ARD-ALLUSERS", "network",
+				"Remote Management is open to all local users", model.SevHigh,
+				"Every local account, including any added later, gets screen control and remote command execution.",
+				"Restrict Remote Management to named users."))
+		}
+	}
+	// A missing key means access was not granted to everyone, which needs no
+	// finding: the earlier RM-ON check already reports that ARD is running.
+
 	return out
+}
+
+// launchdEnabled reads a service's state out of "launchctl print-disabled".
+//
+// The output is a disabled-list, and its spelling changed: older macOS printed
+// "=> false" for a service that is not disabled, current macOS prints
+// "=> enabled". Reading only one of the two silently reports every service as
+// off, which is how Screen Sharing went unnoticed while it was listening on
+// port 5900.
+func launchdEnabled(out, label string) (enabled bool, known bool) {
+	for _, l := range strings.Split(out, "\n") {
+		if !strings.Contains(l, label) {
+			continue
+		}
+		low := strings.ToLower(l)
+		switch {
+		case strings.Contains(low, "=> enabled"), strings.Contains(low, "=> false"):
+			return true, true
+		case strings.Contains(low, "=> disabled"), strings.Contains(low, "=> true"):
+			return false, true
+		}
+	}
+	return false, false
 }
 
 // macSSHConfig reads sshd_config for the settings that matter most. It mirrors
