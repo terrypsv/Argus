@@ -91,6 +91,7 @@ var exactReferences = map[string][]Reference{
 	"GUEST-ON":     {mitre("T1078.003", "Local Accounts")},
 	"VNC-ON":       {mitre("T1021.005", "VNC")},
 	"ARD-ALLUSERS": {mitre("T1021.005", "VNC")},
+	"RM-ON":        {mitre("T1021.005", "VNC")},
 	// Disabling the signed system volume is a deliberate weakening of the
 	// platform's code-signing enforcement, not a configuration preference.
 	"SSV-OFF":       {mitre("T1553.006", "Code Signing Policy Modification")},
