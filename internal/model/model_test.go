@@ -22,6 +22,17 @@ func TestAxisOf(t *testing.T) {
 		// A kernel sysctl is configuration, not evidence of tampering, even
 		// though it shares the KRN- prefix with the two entries above.
 		{"KRN-KERNEL-KPTR_RESTRICT", AxisHardening},
+
+		// macOS: an enabled guest account is a configuration weakness, not
+		// evidence of tampering. Naming it ACC-GUEST would have put it on the
+		// integrity axis through the ACC- prefix.
+		{"GUEST-ON", AxisHardening},
+		{"SSH-REMOTE", AxisHardening},
+		{"VNC-ON", AxisHardening},
+		{"ARD-ALLUSERS", AxisHardening},
+		{"SSV-OFF", AxisHardening},
+		{"UPD-NOCHECK", AxisHardening},
+		{"SYSEXT-ACTIVE", AxisHardening},
 		{"KRN-HARDENING", AxisHardening},
 		{"MNT-NOEXEC-TMP", AxisHardening},
 		{"FW-NONE", AxisHardening},

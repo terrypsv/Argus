@@ -26,6 +26,10 @@ func osChecks() []check {
 		{Name: "listening-ports", Category: "network", Fn: macPorts},
 		{Name: "launch-agents", Category: "persistence", Fn: macLaunchAgents},
 		{Name: "kernel-extensions", Category: "kernel", Fn: macKexts},
+		{Name: "system-extensions", Category: "kernel", Fn: macSystemExtensions},
+		{Name: "accounts", Category: "accounts", Fn: macAccounts},
+		{Name: "remote-access", Category: "ssh", Fn: macRemoteAccess},
+		{Name: "system-integrity", Category: "hardening", Fn: macSystemIntegrity},
 	}
 }
 
