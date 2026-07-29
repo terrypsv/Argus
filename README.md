@@ -63,7 +63,7 @@ Un score unique aurait affiché « F », ce qui se lit comme une alerte d'intrus
 | --- | --- | --- | --- |
 | Durcissement noyau | sysctls, taint, `LD_PRELOAD` | SIP, volume système scellé, Gatekeeper, extensions noyau et système | UAC, SMBv1 |
 | Comptes | UID 0, mots de passe vides | UID 0, administrateurs, compte invité | administrateurs locaux (par SID) |
-| Accès distant | configuration SSH | Remote Login et sa configuration, Remote Management, Screen Sharing | RDP + NLA |
+| Accès distant | configuration SSH | Remote Login et sa configuration, Remote Management (par déclencheur d'activation), Screen Sharing | RDP + NLA |
 | Disques | SUID/SGID, world-writable, options de montage, occupation | FileVault, occupation | BitLocker, occupation |
 | Persistance | cron, systemd | LaunchAgents/Daemons vérifiés par signature | clés Run, tâches planifiées |
 | Réseau | ports en écoute, pare-feu | ports, pare-feu applicatif, mises à jour automatiques | ports, pare-feu Windows |
@@ -441,6 +441,32 @@ C ≥ 70, D ≥ 60, E ≥ 40, F en dessous). Les pondérations se règlent dans
 [`internal/model/model.go`](internal/model/model.go), tout comme la table qui
 répartit les findings entre les deux axes.
 
+### Une décision, une pénalité
+
+Certaines expositions sont vues par deux contrôles à la fois. Activer le
+partage d'écran sous macOS déclenche `VNC-ON`, parce que le service est activé,
+**et** `NET-PORT-TCP-5900`, parce que le port répond sur toutes les interfaces.
+Même schéma sous Windows avec `RDP-ON` et le port 3389.
+
+Les deux constats ne sont pas redondants : une machine peut avoir le service
+actif mais filtré, cas que seul le contrôle de service voit. Mais quand les deux
+déclenchent, ils décrivent un seul réglage, et « vous avez perdu 14 points parce
+que deux contrôles ont remarqué la même chose » ne serait pas défendable.
+
+Le constat de service est donc conservé, visible, avec sa sévérité réelle et sa
+place parmi les problèmes ouverts, mais marqué :
+
+```text
+  MED   Screen Sharing is enabled  (VNC-ON)
+        The desktop is reachable over VNC...
+        counted once, through NET-PORT-TCP-5900
+```
+
+Il est conservé plutôt que supprimé parce qu'il explique **pourquoi** le port
+est ouvert : un rapport qui énonce un symptôme sans sa cause est moins utile.
+Le score brut exclut lui aussi le doublon, « sans dérogation » signifiant sans
+arbitrage humain et non avec la même exposition comptée deux fois.
+
 ---
 
 ## Architecture
@@ -503,7 +529,7 @@ produit la moitié des correctifs du dépôt :
 | --- | --- | --- |
 | Windows 11 | 26200 | Defender passif signalé à tort alors qu'un antivirus tiers est actif ; groupe Administrateurs introuvable sur un système en français |
 | Kali Linux | rolling | 22 faux positifs de binaires supprimés après mise à jour de paquets ; `0 socket en écoute` annoncé alors que la table n'avait pas pu être lue |
-| macOS | 26.5.2 | Démon d'éditeur signé accusé d'être une trace d'altération ; `/dev` signalé plein ; point de montage tronqué au premier espace ; énumération échouée comptée comme contrôle réussi ; Screen Sharing actif rapporté éteint parce que `launchctl` a changé de vocabulaire |
+| macOS | 26.5.2 | Démon d'éditeur signé accusé d'être une trace d'altération ; `/dev` signalé plein ; point de montage tronqué au premier espace ; énumération échouée comptée comme contrôle réussi ; Screen Sharing actif rapporté éteint parce que `launchctl` a changé de vocabulaire ; Remote Management indétectable par son fichier de préférences, qui ne reflète pas son activation |
 
 Aucun de ces défauts n'était visible à la compilation.
 
