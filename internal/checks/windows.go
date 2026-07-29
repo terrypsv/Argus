@@ -267,7 +267,7 @@ func winPorts(ctx *engine.Context) []model.Finding {
 		inventory = append(inventory, fmt.Sprintf("tcp/%s (%s)", port, scope))
 		if r, ok := risky[port]; ok && allIf && !seen[port] {
 			seen[port] = true
-			findings = append(findings, fail("NET-PORT-"+port, "network",
+			findings = append(findings, fail("NET-PORT-TCP-"+port, "network",
 				fmt.Sprintf("%s (port %s) exposed on all interfaces", r.label, port),
 				r.sev, "Reachable from any network.", "Restrict via firewall or disable the service."))
 		}
