@@ -13,8 +13,9 @@ import (
 )
 
 type volume struct {
-	name    string
-	pctUsed int
+	name     string
+	pctUsed  int
+	readOnly bool
 }
 
 func diskUsageCheck(ctx *engine.Context) []model.Finding {
@@ -31,6 +32,13 @@ func diskUsageCheck(ctx *engine.Context) []model.Finding {
 	var out []model.Finding
 	var inventory []string
 	for _, v := range vols {
+		if v.readOnly {
+			// Kept in the inventory for visibility, but never alerted on: a
+			// read-only volume at 100% is normal by construction, and macOS
+			// seals "/" that way on every install.
+			inventory = append(inventory, fmt.Sprintf("%s - %d%% used (read-only)", v.name, v.pctUsed))
+			continue
+		}
 		inventory = append(inventory, fmt.Sprintf("%s - %d%% used", v.name, v.pctUsed))
 		switch {
 		case v.pctUsed >= 98:
@@ -148,10 +156,7 @@ func unixVolumes() []volume {
 			continue
 		}
 		mount := mountPointOf(l, f)
-		if ro[mount] {
-			continue
-		}
-		vols = append(vols, volume{name: mount, pctUsed: n})
+		vols = append(vols, volume{name: mount, pctUsed: n, readOnly: ro[mount]})
 	}
 	return vols
 }

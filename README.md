@@ -61,7 +61,7 @@ Un score unique aurait affiché « F », ce qui se lit comme une alerte d'intrus
 
 | Domaine | Linux | macOS | Windows |
 | --- | --- | --- | --- |
-| Durcissement noyau | sysctls, taint, `LD_PRELOAD` | SIP, extensions noyau | UAC, SMBv1 |
+| Durcissement noyau | sysctls, taint, `LD_PRELOAD` | SIP, Gatekeeper, extensions noyau | UAC, SMBv1 |
 | Comptes | UID 0, mots de passe vides | - | administrateurs locaux (par SID) |
 | Accès distant | configuration SSH | - | RDP + NLA |
 | Disques | SUID/SGID, world-writable, options de montage, occupation | FileVault, occupation | BitLocker, occupation |
@@ -79,6 +79,14 @@ Quelques détails de conception qui évitent le bruit :
 - Sous Windows, une entrée de démarrage sous `AppData` n'est suspecte que si son
   binaire ne porte **pas de signature Authenticode valide**. Une liste
   d'éditeurs autorisés serait contournée par un malware qui se nomme « Discord ».
+- Sous macOS, même règle avec `codesign` : un LaunchAgent qui correspond à un
+  motif de persistance n'est signalé que si son programme n'a pas de signature
+  valide. Le motif seul ne prouve rien, un démon d'éditeur peut parfaitement
+  citer `/tmp/` dans sa configuration. Le rapport indique toujours **quel motif
+  a déclenché**, pour qu'un faux positif se diagnostique sans lire le code.
+- Les systèmes de fichiers synthétiques et les montages en lecture seule sont
+  listés mais jamais signalés : `/dev` et le volume système scellé de macOS
+  affichent 100 % par construction.
 - Le groupe Administrateurs est résolu par SID `S-1-5-32-544`, invariant quelle
   que soit la langue du système.
 - La configuration SSH n'est pénalisée que si `sshd` tourne réellement.
@@ -110,6 +118,17 @@ chmod +x argus-linux-amd64
 # à comparer avec la ligne correspondante de SHA256SUMS
 .\argus-windows-amd64.exe scan
 ```
+
+Sur macOS, un binaire téléchargé porte l'attribut de quarantaine et Gatekeeper
+refusera de l'exécuter. Après avoir vérifié l'empreinte :
+
+```bash
+xattr -d com.apple.quarantine argus-macos-arm64
+```
+
+Argus n'est pas signé par un certificat de développeur Apple, ce qui coûte un
+abonnement annuel. La vérification d'empreinte remplit le même rôle et ne
+demande de faire confiance à personne.
 
 ### Compilation depuis les sources
 
@@ -474,6 +493,20 @@ d'identifiant à `integrityPrefixes` dans `model.go`.
 
 ---
 
+## Validation sur machines réelles
+
+La CI compile et teste sur trois systèmes, mais compiler n'est pas exécuter.
+Chaque plateforme a été scannée sur une machine réelle, et c'est ce qui a
+produit la moitié des correctifs du dépôt :
+
+| Plateforme | Version | Ce que le premier scan réel a révélé |
+| --- | --- | --- |
+| Windows 11 | 26200 | Defender passif signalé à tort alors qu'un antivirus tiers est actif ; groupe Administrateurs introuvable sur un système en français |
+| Kali Linux | rolling | 22 faux positifs de binaires supprimés après mise à jour de paquets ; `0 socket en écoute` annoncé alors que la table n'avait pas pu être lue |
+| macOS | 26.5.2 | Démon d'éditeur signé accusé d'être une trace d'altération ; `/dev` signalé plein ; point de montage tronqué au premier espace ; énumération échouée comptée comme contrôle réussi |
+
+Aucun de ces défauts n'était visible à la compilation.
+
 ## Tests
 
 ```bash
@@ -504,8 +537,8 @@ développé depuis une seule machine a besoin de ce filet.
 - Sortie NDJSON pour ingestion SIEM
 - Trajectoire dans le temps : tracer le déplacement de la machine sur le plan à
   deux axes au fil des scans
-- Élargissement de la couverture macOS (comptes, SSH, anomalies de processus)
-- Validation des contrôles macOS sur matériel réel
+- Élargissement de la couverture macOS (comptes, SSH, anomalies de processus),
+  aujourd'hui à 10 contrôles contre 18 sous Linux et 14 sous Windows
 
 Contributions bienvenues : ouvre une issue ou une pull request.
 
