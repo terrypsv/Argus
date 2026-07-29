@@ -146,15 +146,12 @@ func macRemoteAccess(ctx *engine.Context) []model.Finding {
 				"The desktop is reachable over VNC, a protocol whose macOS implementation authenticates but does not protect the session end to end.",
 				"Disable it in System Settings > General > Sharing if unused."))
 		}
-		for _, label := range []string{"com.apple.RemoteDesktop.agent", "com.apple.RemoteDesktop"} {
-			if on, known := launchdEnabled(disabled, label); known && on {
-				out = append(out, fail("RM-ON", "network",
-					"Remote Management (ARD) is enabled", model.SevMedium,
-					"Apple Remote Desktop allows screen control and remote command execution.",
-					"Disable it in System Settings > General > Sharing if unused."))
-				break
-			}
-		}
+	}
+	if on, why := ardActive(); on {
+		out = append(out, fail("RM-ON", "network",
+			"Remote Management (ARD) is enabled", model.SevMedium,
+			"Apple Remote Desktop allows screen control and remote command execution. Detected by "+why+".",
+			"Disable it in System Settings > General > Sharing if unused."))
 	}
 
 	// Access granted to every local account is a much broader grant than access
@@ -172,6 +169,25 @@ func macRemoteAccess(ctx *engine.Context) []model.Finding {
 	// finding: the earlier RM-ON check already reports that ARD is running.
 
 	return out
+}
+
+// ardActive reports whether Apple Remote Desktop is switched on.
+//
+// The preference file is not the answer: on a machine with ARD active it held
+// nothing but allowInsecureDH, and the ARD_AllLocalUsers key only exists when
+// access was granted to everyone. The activation trigger and the running agent
+// are the two signals that actually track the setting.
+func ardActive() (bool, string) {
+	const trigger = "/Library/Application Support/Apple/Remote Desktop/RemoteManagement.launchd"
+	if fileExists(trigger) {
+		if strings.Contains(strings.ToLower(readFile(trigger)), "enabled") {
+			return true, "the ARD activation trigger"
+		}
+	}
+	if out, err := runCmd(10*time.Second, "pgrep", "-x", "ARDAgent"); err == nil && strings.TrimSpace(out) != "" {
+		return true, "a running ARDAgent process"
+	}
+	return false, ""
 }
 
 // launchdEnabled reads a service's state out of "launchctl print-disabled".
