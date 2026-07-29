@@ -145,6 +145,8 @@ func (r *Runner) Run() model.Report {
 		r.ctx.logf("%v", perr)
 	}
 
+	correlateReachability(rep.Findings)
+
 	suppressed, expired := applyExceptions(rep.Findings, ef, time.Now())
 	rep.Suppressed = suppressed
 	for _, id := range expired {
@@ -232,6 +234,37 @@ func countFindings(findings []model.Finding) map[string]int {
 // axisScore computes the 0..100 score for one axis in isolation, together with
 // the raw score that ignores every acceptance. Publishing both is what stops a
 // waiver from quietly turning into a clean bill of health.
+// reachabilityProof maps a service-level finding to the port finding that
+// proves the same service is actually reachable. Enabling one setting should
+// cost points once, not once per check that happens to notice it.
+var reachabilityProof = map[string]string{
+	"VNC-ON": "NET-PORT-TCP-5900",
+	"RM-ON":  "NET-PORT-TCP-5900",
+	"RDP-ON": "NET-PORT-TCP-3389",
+}
+
+// correlateReachability marks a service finding as already charged when the
+// matching port finding is present. Nothing is removed: the service finding is
+// what explains *why* the port is open, and losing it would leave the report
+// stating a symptom without its cause.
+func correlateReachability(findings []model.Finding) {
+	open := map[string]bool{}
+	for _, f := range findings {
+		if !f.Passed && f.Severity != model.SevInfo {
+			open[f.ID] = true
+		}
+	}
+	for i := range findings {
+		f := &findings[i]
+		if f.Passed || f.Severity == model.SevInfo || f.Superseded != "" {
+			continue
+		}
+		if proof, ok := reachabilityProof[f.ID]; ok && open[proof] {
+			f.Superseded = proof
+		}
+	}
+}
+
 func axisScore(findings []model.Finding, axis model.Axis) model.AxisScore {
 	penalty, rawPenalty := 0.0, 0.0
 	issues, accepted := 0, 0
@@ -240,6 +273,12 @@ func axisScore(findings []model.Finding, axis model.Axis) model.AxisScore {
 			continue
 		}
 		if model.AxisOf(f) != axis {
+			continue
+		}
+		if f.Superseded != "" {
+			// Already charged through the finding named in Superseded. This
+			// is excluded from the raw score too: "without exceptions" means
+			// without waivers, not with the same exposure counted twice.
 			continue
 		}
 		rawPenalty += f.Severity.Weight()

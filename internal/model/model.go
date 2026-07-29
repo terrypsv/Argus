@@ -143,18 +143,22 @@ func SeverityFromString(s string) Severity {
 // Passed == true  -> the control is satisfied (good).
 // Passed == false -> a problem was found; Severity drives the score penalty.
 type Finding struct {
-	ID          string      `json:"id"`                    // stable identifier, e.g. "LNX-SSH-ROOT"
-	Category    string      `json:"category"`              // grouping, e.g. "kernel", "disk", "network"
-	Title       string      `json:"title"`                 // one-line human summary
-	Severity    Severity    `json:"-"`                     // numeric severity
-	SeverityStr string      `json:"severity"`              // serialised label (set by Normalise)
-	Passed      bool        `json:"passed"`                // true = secure, false = issue
-	Detail      string      `json:"detail,omitempty"`      // what was observed
-	Remediation string      `json:"remediation,omitempty"` // how to fix it
-	Evidence    []string    `json:"evidence,omitempty"`    // raw supporting lines (paths, config, etc.)
-	Err         string      `json:"error,omitempty"`       // set if the check could not run reliably
-	Accepted    string      `json:"accepted,omitempty"`    // reason this finding was knowingly accepted
-	References  []Reference `json:"references,omitempty"`  // published controls this finding maps to
+	ID          string   `json:"id"`                    // stable identifier, e.g. "LNX-SSH-ROOT"
+	Category    string   `json:"category"`              // grouping, e.g. "kernel", "disk", "network"
+	Title       string   `json:"title"`                 // one-line human summary
+	Severity    Severity `json:"-"`                     // numeric severity
+	SeverityStr string   `json:"severity"`              // serialised label (set by Normalise)
+	Passed      bool     `json:"passed"`                // true = secure, false = issue
+	Detail      string   `json:"detail,omitempty"`      // what was observed
+	Remediation string   `json:"remediation,omitempty"` // how to fix it
+	Evidence    []string `json:"evidence,omitempty"`    // raw supporting lines (paths, config, etc.)
+	Err         string   `json:"error,omitempty"`       // set if the check could not run reliably
+	Accepted    string   `json:"accepted,omitempty"`    // reason this finding was knowingly accepted
+	// Superseded names the finding that already charged for this exposure.
+	// The finding stays visible with its real severity; it simply is not
+	// counted twice, because one decision should cost points once.
+	Superseded string      `json:"superseded,omitempty"`
+	References []Reference `json:"references,omitempty"` // published controls this finding maps to
 }
 
 // Normalise fills serialisation-only fields. Call before marshalling.

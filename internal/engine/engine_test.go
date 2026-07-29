@@ -115,3 +115,64 @@ func TestCountFindingsSeparatesAcceptedFromPassed(t *testing.T) {
 		t.Errorf("MEDIUM = %d, want 1 (the accepted one must not be tallied)", c["MEDIUM"])
 	}
 }
+
+// Enabling one setting should cost points once. Screen Sharing fires both a
+// service finding and a port finding; charging for both makes the score a
+// function of how many checks noticed, not of the machine's posture.
+func TestCorrelateReachabilityChargesOnce(t *testing.T) {
+	findings := []model.Finding{
+		failing("VNC-ON", model.SevMedium),
+		failing("NET-PORT-TCP-5900", model.SevMedium),
+		failing("FW-OFF", model.SevMedium),
+	}
+	correlateReachability(findings)
+
+	if findings[0].Superseded != "NET-PORT-TCP-5900" {
+		t.Errorf("VNC-ON superseded = %q, want the port finding", findings[0].Superseded)
+	}
+	if findings[1].Superseded != "" {
+		t.Error("the port finding is the one that charges; it must not be superseded itself")
+	}
+
+	s := axisScore(findings, model.AxisHardening)
+	if s.Score != 86 {
+		t.Errorf("score = %d, want 86: two deductions, not three", s.Score)
+	}
+	if s.RawScore != 86 {
+		t.Errorf("raw score = %d, want 86: the raw score excludes waivers, not double counting", s.RawScore)
+	}
+}
+
+// A service enabled but not reachable is a real, uncharged-elsewhere finding.
+// This is the case that justifies keeping the service check at all.
+func TestServiceEnabledButFirewalledStillCounts(t *testing.T) {
+	findings := []model.Finding{failing("VNC-ON", model.SevMedium)}
+	correlateReachability(findings)
+
+	if findings[0].Superseded != "" {
+		t.Error("with no port finding present, nothing has charged for this yet")
+	}
+	if got := axisScore(findings, model.AxisHardening).Score; got != 93 {
+		t.Errorf("score = %d, want 93", got)
+	}
+}
+
+// The finding must stay visible and keep its severity: it explains why the
+// port is open, and a report that states a symptom without its cause is worse.
+func TestSupersededFindingStaysVisible(t *testing.T) {
+	findings := []model.Finding{
+		failing("RDP-ON", model.SevMedium),
+		failing("NET-PORT-TCP-3389", model.SevMedium),
+	}
+	correlateReachability(findings)
+
+	if findings[0].Passed {
+		t.Error("a superseded finding is not a passed control")
+	}
+	if findings[0].Severity != model.SevMedium {
+		t.Error("a superseded finding keeps its real severity")
+	}
+	if c := countFindings(findings); c["failed"] != 2 {
+		t.Errorf("failed = %d, want 2: both remain open problems", c["failed"])
+	}
+}
