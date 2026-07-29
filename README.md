@@ -61,12 +61,12 @@ Un score unique aurait affiché « F », ce qui se lit comme une alerte d'intrus
 
 | Domaine | Linux | macOS | Windows |
 | --- | --- | --- | --- |
-| Durcissement noyau | sysctls, taint, `LD_PRELOAD` | SIP, Gatekeeper, extensions noyau | UAC, SMBv1 |
-| Comptes | UID 0, mots de passe vides | - | administrateurs locaux (par SID) |
-| Accès distant | configuration SSH | - | RDP + NLA |
+| Durcissement noyau | sysctls, taint, `LD_PRELOAD` | SIP, volume système scellé, Gatekeeper, extensions noyau et système | UAC, SMBv1 |
+| Comptes | UID 0, mots de passe vides | UID 0, administrateurs, compte invité | administrateurs locaux (par SID) |
+| Accès distant | configuration SSH | Remote Login et sa configuration, Remote Management, Screen Sharing | RDP + NLA |
 | Disques | SUID/SGID, world-writable, options de montage, occupation | FileVault, occupation | BitLocker, occupation |
-| Persistance | cron, systemd | LaunchAgents/Daemons | clés Run, tâches planifiées |
-| Réseau | ports en écoute, pare-feu | ports, pare-feu applicatif | ports, pare-feu Windows |
+| Persistance | cron, systemd | LaunchAgents/Daemons vérifiés par signature | clés Run, tâches planifiées |
+| Réseau | ports en écoute, pare-feu | ports, pare-feu applicatif, mises à jour automatiques | ports, pare-feu Windows |
 | Antivirus | - | - | Defender et antivirus tiers via le Security Center |
 | Processus | binaire supprimé, exécution depuis `/tmp`, `memfd` | - | - |
 | Intégrité fichiers | oui | oui | oui |
@@ -503,7 +503,7 @@ produit la moitié des correctifs du dépôt :
 | --- | --- | --- |
 | Windows 11 | 26200 | Defender passif signalé à tort alors qu'un antivirus tiers est actif ; groupe Administrateurs introuvable sur un système en français |
 | Kali Linux | rolling | 22 faux positifs de binaires supprimés après mise à jour de paquets ; `0 socket en écoute` annoncé alors que la table n'avait pas pu être lue |
-| macOS | 26.5.2 | Démon d'éditeur signé accusé d'être une trace d'altération ; `/dev` signalé plein ; point de montage tronqué au premier espace ; énumération échouée comptée comme contrôle réussi |
+| macOS | 26.5.2 | Démon d'éditeur signé accusé d'être une trace d'altération ; `/dev` signalé plein ; point de montage tronqué au premier espace ; énumération échouée comptée comme contrôle réussi ; Screen Sharing actif rapporté éteint parce que `launchctl` a changé de vocabulaire |
 
 Aucun de ces défauts n'était visible à la compilation.
 
@@ -537,8 +537,8 @@ développé depuis une seule machine a besoin de ce filet.
 - Sortie NDJSON pour ingestion SIEM
 - Trajectoire dans le temps : tracer le déplacement de la machine sur le plan à
   deux axes au fil des scans
-- Élargissement de la couverture macOS (comptes, SSH, anomalies de processus),
-  aujourd'hui à 10 contrôles contre 18 sous Linux et 14 sous Windows
+- Anomalies de processus sous macOS, seul domaine encore couvert sous Linux et
+  Windows mais pas sur macOS
 
 Contributions bienvenues : ouvre une issue ou une pull request.
 
