@@ -116,15 +116,27 @@ func macFirewall(ctx *engine.Context) []model.Finding {
 }
 
 func macPorts(ctx *engine.Context) []model.Finding {
+	// lsof exits non-zero both when it finds nothing and when it cannot read a
+	// filesystem, so an empty result from it proves nothing on its own. netstat
+	// is asked for a second opinion before any claim is made: announcing zero
+	// open ports because the enumeration failed is a false all-clear, which is
+	// worse than admitting the check did not run.
 	var out string
-	var err error
+	var ok bool
 	if cmdAvailable("lsof") {
-		out, err = runCmd(15*time.Second, "lsof", "-nP", "-iTCP", "-sTCP:LISTEN")
-	} else {
-		out, err = runCmd(15*time.Second, "netstat", "-an", "-p", "tcp")
+		if o, err := runCmd(15*time.Second, "lsof", "-nP", "-iTCP", "-sTCP:LISTEN"); err == nil && o != "" {
+			out, ok = o, true
+		}
 	}
-	if err != nil && out == "" {
-		return []model.Finding{info("NET-UNKNOWN", "network", "Could not read listening ports", "")}
+	if !ok && cmdAvailable("netstat") {
+		if o, err := runCmd(15*time.Second, "netstat", "-an", "-p", "tcp"); err == nil {
+			out, ok = o, true
+		}
+	}
+	if !ok {
+		return []model.Finding{errFinding("NET-LISTEN", "network",
+			"Could not enumerate listening sockets",
+			"Neither lsof nor netstat returned a usable socket table. Nothing is claimed about open ports; re-run with sufficient privileges.")}
 	}
 
 	risky := map[int]struct {
@@ -207,13 +219,76 @@ func readPlist(path string) (string, bool) {
 	return out, true
 }
 
+// programOf extracts the executable a launch item runs: the Program key, or
+// the first element of ProgramArguments. Returned empty when neither is found.
+func programOf(plist string) string {
+	grab := func(after string) string {
+		i := strings.Index(plist, after)
+		if i < 0 {
+			return ""
+		}
+		rest := plist[i+len(after):]
+		a := strings.Index(rest, "<string>")
+		if a < 0 {
+			return ""
+		}
+		rest = rest[a+len("<string>"):]
+		b := strings.Index(rest, "</string>")
+		if b < 0 {
+			return ""
+		}
+		return strings.TrimSpace(rest[:b])
+	}
+	if p := grab("<key>Program</key>"); p != "" {
+		return p
+	}
+	return grab("<key>ProgramArguments</key>")
+}
+
+// signedBy returns the signing authority of a binary, and whether the signature
+// verifies. On macOS every legitimate launch item is signed, so this is the
+// same discriminator Authenticode provides on Windows: it separates "matches a
+// suspicious pattern" from "is actually untrusted".
+func signedBy(program string) (authority string, valid bool) {
+	if program == "" || !fileExists(program) {
+		return "", false
+	}
+	if _, err := runCmd(10*time.Second, "codesign", "--verify", "--strict", program); err != nil {
+		return "", false
+	}
+	out, err := runCmd(10*time.Second, "codesign", "-dv", program)
+	if err != nil {
+		return "signature valide", true
+	}
+	for _, l := range strings.Split(out, "\n") {
+		if strings.HasPrefix(l, "Authority=") {
+			return strings.TrimPrefix(l, "Authority="), true
+		}
+	}
+	return "signature valide", true
+}
+
+// matchedToken reports which pattern fired, so a false positive is diagnosable
+// from the report itself instead of requiring a read of the source.
+func matchedToken(content string) string {
+	low := strings.ToLower(content)
+	for _, t := range macSuspicious {
+		if strings.Contains(low, t) {
+			return t
+		}
+	}
+	return ""
+}
+
 func macLaunchAgents(ctx *engine.Context) []model.Finding {
 	dirs := []string{
 		filepath.Join(os.Getenv("HOME"), "Library/LaunchAgents"),
 		"/Library/LaunchAgents",
 		"/Library/LaunchDaemons",
 	}
-	var suspicious, inventory, unreadable []string
+	haveCodesign := cmdAvailable("codesign")
+
+	var suspicious, benign, inventory, unreadable []string
 	for _, dir := range dirs {
 		entries, err := os.ReadDir(dir)
 		if err != nil {
@@ -231,18 +306,40 @@ func macLaunchAgents(ctx *engine.Context) []model.Finding {
 				unreadable = append(unreadable, p)
 				continue
 			}
-			if containsAny(strings.ToLower(content), macSuspicious...) {
-				suspicious = append(suspicious, p)
+			token := matchedToken(content)
+			if token == "" {
+				continue
 			}
+
+			// A pattern match alone is not evidence of tampering. Everything
+			// shipped by a vendor is signed; accusing a signed daemon of being
+			// a persistence trick teaches people to ignore the tool.
+			if !haveCodesign {
+				suspicious = append(suspicious, fmt.Sprintf("%s  [matched %q, signature not verified]", p, token))
+				continue
+			}
+			authority, valid := signedBy(programOf(content))
+			if valid {
+				benign = append(benign, fmt.Sprintf("%s  [matched %q, signed by %s]", p, token, trunc(authority, 60)))
+				continue
+			}
+			suspicious = append(suspicious, fmt.Sprintf("%s  [matched %q, no valid signature]", p, token))
 		}
 	}
 
 	var out []model.Finding
 	if len(suspicious) > 0 {
 		out = append(out, fail("LA-SUSP", "persistence",
-			"Suspicious LaunchAgent/Daemon(s)", model.SevHigh,
-			"A launch item referencing temp dirs, shared folders or download/obfuscation tools is a common macOS persistence trick.",
+			fmt.Sprintf("%d launch item(s) match a persistence pattern and carry no valid signature", len(suspicious)),
+			model.SevHigh,
+			"A launch item referencing temp dirs, shared folders or download tools, whose program is unsigned, is a common macOS persistence trick.",
 			"Inspect each plist; remove anything you did not install.", cap50(suspicious)...))
+	}
+	if len(benign) > 0 {
+		out = append(out, info("LA-SIGNED", "persistence",
+			fmt.Sprintf("%d signed launch item(s) match a pattern", len(benign)),
+			"Listed for review only. The pattern fired but the program carries a valid signature, so this is not treated as tampering.",
+			cap50(benign)...))
 	}
 	if len(unreadable) > 0 {
 		out = append(out, errFinding("LA-UNREADABLE", "persistence",

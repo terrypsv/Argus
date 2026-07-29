@@ -51,14 +51,88 @@ func diskUsageCheck(ctx *engine.Context) []model.Finding {
 	return out
 }
 
+// pseudoFilesystems never reflect real storage pressure. devfs and the autofs
+// maps report 100% by construction, and a VM shared folder reports the host's
+// disk, not this machine's.
+var pseudoFilesystems = []string{
+	"tmpfs", "devtmpfs", "devfs", "udev", "overlay", "squashfs",
+	"autofs", "map", "vmhgfs", "fuse.gvfsd", "none",
+}
+
+// readOnlyMounts lists mount points that cannot be written to. A read-only
+// filesystem sitting at 100% is normal by definition, not a warning: an
+// installer image or a sealed system volume is *supposed* to be full.
+func readOnlyMounts() map[string]bool {
+	ro := map[string]bool{}
+	out, err := runCmd(10*time.Second, "mount")
+	if err != nil {
+		return ro
+	}
+	for _, l := range strings.Split(out, "\n") {
+		i := strings.Index(l, " on ")
+		if i < 0 {
+			continue
+		}
+		rest := l[i+4:]
+		// macOS: "/dev/disk1s1 on / (apfs, local, read-only)"
+		// Linux: "/dev/sda1 on / type ext4 (ro,relatime)"
+		mount := rest
+		if j := strings.Index(rest, " ("); j >= 0 {
+			mount = rest[:j]
+		}
+		if j := strings.Index(mount, " type "); j >= 0 {
+			mount = mount[:j]
+		}
+		opts := ""
+		if a := strings.LastIndex(l, "("); a >= 0 {
+			if b := strings.LastIndex(l, ")"); b > a {
+				opts = l[a+1 : b]
+			}
+		}
+		if isReadOnlyOpts(opts) {
+			ro[strings.TrimSpace(mount)] = true
+		}
+	}
+	return ro
+}
+
+func isReadOnlyOpts(opts string) bool {
+	if strings.Contains(opts, "read-only") {
+		return true // macOS spelling
+	}
+	for _, o := range strings.Split(opts, ",") {
+		if strings.TrimSpace(o) == "ro" {
+			return true // Linux spelling
+		}
+	}
+	return false
+}
+
+// mountPointOf recovers the "Mounted on" column from a df line. It cannot be
+// read with strings.Fields because mount points contain spaces: on a VMware
+// guest, "/Volumes/VMware Shared Folders" was being reported as a filesystem
+// called "/Volumes/VMware", which does not exist.
+func mountPointOf(line string, fields []string) string {
+	idx := 0
+	for k := 0; k < 5 && k < len(fields); k++ {
+		j := strings.Index(line[idx:], fields[k])
+		if j < 0 {
+			return fields[len(fields)-1]
+		}
+		idx += j + len(fields[k])
+	}
+	return strings.TrimSpace(line[idx:])
+}
+
 func unixVolumes() []volume {
 	out, err := runCmd(10*time.Second, "df", "-kP")
 	if err != nil {
 		return nil
 	}
+	ro := readOnlyMounts()
+
 	var vols []volume
-	lines := strings.Split(out, "\n")
-	for i, l := range lines {
+	for i, l := range strings.Split(out, "\n") {
 		if i == 0 {
 			continue // header
 		}
@@ -66,16 +140,17 @@ func unixVolumes() []volume {
 		if len(f) < 6 {
 			continue
 		}
-		fsName := f[0]
-		if containsAny(fsName, "tmpfs", "devtmpfs", "udev", "overlay", "squashfs") || fsName == "none" {
+		if containsAny(strings.ToLower(f[0]), pseudoFilesystems...) {
 			continue
 		}
-		pct := strings.TrimSuffix(f[4], "%")
-		n, err := strconv.Atoi(pct)
+		n, err := strconv.Atoi(strings.TrimSuffix(f[4], "%"))
 		if err != nil {
 			continue
 		}
-		mount := f[5]
+		mount := mountPointOf(l, f)
+		if ro[mount] {
+			continue
+		}
 		vols = append(vols, volume{name: mount, pctUsed: n})
 	}
 	return vols
