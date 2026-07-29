@@ -256,16 +256,21 @@ func signedBy(program string) (authority string, valid bool) {
 	if _, err := runCmd(10*time.Second, "codesign", "--verify", "--strict", program); err != nil {
 		return "", false
 	}
-	out, err := runCmd(10*time.Second, "codesign", "-dv", program)
-	if err != nil {
-		return "signature valide", true
-	}
-	for _, l := range strings.Split(out, "\n") {
-		if strings.HasPrefix(l, "Authority=") {
-			return strings.TrimPrefix(l, "Authority="), true
+	// codesign writes its description to stderr, so stdout alone comes back
+	// empty and the authority would be lost.
+	out, err := runCmdCombined(10*time.Second, "codesign", "-dv", program)
+	if err == nil {
+		for _, l := range strings.Split(out, "\n") {
+			l = strings.TrimSpace(l)
+			if strings.HasPrefix(l, "Authority=") {
+				return strings.TrimPrefix(l, "Authority="), true
+			}
+		}
+		if strings.Contains(out, "flags=") && strings.Contains(out, "adhoc") {
+			return "ad-hoc signature (no publisher)", true
 		}
 	}
-	return "signature valide", true
+	return "valid signature, publisher not reported", true
 }
 
 // matchedToken reports which pattern fired, so a false positive is diagnosable

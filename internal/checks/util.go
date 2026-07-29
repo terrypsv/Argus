@@ -17,6 +17,16 @@ import (
 
 // runCmd executes a command with a hard timeout and returns trimmed stdout.
 // stderr is ignored on purpose: these are best-effort probes.
+// runCmdCombined captures stderr as well as stdout. Some tools write their
+// actual answer to stderr: codesign prints the signing authority there, so
+// reading only stdout silently loses it.
+func runCmdCombined(timeout time.Duration, name string, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, name, args...).CombinedOutput()
+	return strings.TrimSpace(string(out)), err
+}
+
 func runCmd(timeout time.Duration, name string, args ...string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
