@@ -90,26 +90,26 @@ func pkgVerifyCheck(ctx *engine.Context) []model.Finding {
 			model.SevHigh,
 			"These files were installed by a package but their contents differ from what the distribution published. Documentation and configuration are excluded, so this should not happen on an untouched system.",
 			"Compare against a clean copy (`apt-get install --reinstall <pkg>` or `rpm -V <pkg>`) and investigate before reinstalling - reinstalling destroys the evidence.",
-			cap50(altered)...))
+			capEvidence(altered)...))
 	}
 	if len(missing) > 0 {
 		out = append(out, fail("PKG-MISSING", "integrity",
 			fmt.Sprintf("%d packaged file(s) are missing", len(missing)),
 			model.SevLow,
 			"Files the package manager expects are absent, outside documentation and configuration. Usually a stripped image, occasionally a binary removed to hide a tool.",
-			"Confirm the removals were intentional.", cap50(missing)...))
+			"Confirm the removals were intentional.", capEvidence(missing)...))
 	}
 	if len(configs) > 0 {
 		out = append(out, info("PKG-CONFIG", "integrity",
 			fmt.Sprintf("%d configuration file(s) changed since installation", len(configs)),
 			"Expected: configuration files exist to be edited. Listed so an unexpected one stands out.",
-			cap50(configs)...))
+			capEvidence(configs)...))
 	}
 	if len(docs) > 0 {
 		out = append(out, info("PKG-DOC", "integrity",
 			fmt.Sprintf("%d documentation file(s) changed since installation", len(docs)),
 			"Manuals, changelogs and locales hold nothing executable. Compressed docs in particular differ whenever a package is rebuilt, which is why they never raise an alert.",
-			cap50(docs)...))
+			capEvidence(docs)...))
 	}
 	if len(altered) == 0 && len(missing) == 0 {
 		out = append(out, pass("PKG-OK", "integrity",

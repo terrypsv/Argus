@@ -152,13 +152,25 @@ func errFinding(id, category, title, errMsg string) model.Finding {
 // check is a thin alias so OS files read cleanly.
 type check = engine.Check
 
-// cap50 caps an evidence slice to 50 entries plus a summary line.
-func cap50(s []string) []string {
-	if len(s) <= 50 {
+// maxEvidence bounds how many supporting lines a finding carries. It sits far
+// above what a console can usefully display on purpose: the JSON report is what
+// `argus diff` compares, so cutting the data at display length would make any
+// inventory longer than a screenful undiffable. A root certificate store holds
+// over a hundred entries, and truncating it hid the very additions the diff
+// exists to catch. The reporters truncate for readability instead.
+const maxEvidence = 500
+
+// evidenceOverflow marks what was dropped. It is metadata about truncation
+// rather than an observation, and the diff engine skips it: its counter moves
+// whenever the inventory size moves, which would report a change on every scan.
+const evidenceOverflow = "... (+"
+
+func capEvidence(s []string) []string {
+	if len(s) <= maxEvidence {
 		return s
 	}
-	res := append([]string{}, s[:50]...)
-	return append(res, fmt.Sprintf("... (+%d more)", len(s)-50))
+	res := append([]string{}, s[:maxEvidence]...)
+	return append(res, fmt.Sprintf("%s%d more)", evidenceOverflow, len(s)-maxEvidence))
 }
 
 // trunc shortens long lines for readable evidence.
