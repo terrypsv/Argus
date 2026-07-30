@@ -89,6 +89,8 @@ func Markdown(w io.Writer, rep model.Report) {
 				fmt.Fprintf(w, "- **References:** %s\n", strings.Join(refs, " · "))
 			}
 			if len(f.Evidence) > 0 {
+				// Markdown is a document rather than a screen, so the full
+				// list is kept: a reader can scroll, and an auditor wants it.
 				fmt.Fprintf(w, "- **Evidence:**\n")
 				for _, e := range f.Evidence {
 					fmt.Fprintf(w, "  - `%s`\n", e)

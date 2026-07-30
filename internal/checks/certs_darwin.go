@@ -55,7 +55,7 @@ func certStoreCheck(ctx *engine.Context) []model.Finding {
 			findings = append(findings, info("CERT-TRUSTOVERRIDE", "certificates",
 				"Administrator trust overrides are configured",
 				"Someone changed the trust decision for one or more certificates on this machine. That can grant trust the vendor did not, or revoke trust the vendor did.",
-				cap50(lines)...))
+				capEvidence(lines)...))
 		}
 	}
 

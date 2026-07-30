@@ -182,7 +182,7 @@ func macPorts(ctx *engine.Context) []model.Finding {
 	dedup := uniqueStrings(inventory)
 	findings = append(findings, info("NET-LISTEN", "network",
 		fmt.Sprintf("%d listening TCP socket(s)", len(dedup)),
-		"Confirm each open port is expected.", cap50(dedup)...))
+		"Confirm each open port is expected.", capEvidence(dedup)...))
 	return findings
 }
 
@@ -356,13 +356,13 @@ func macLaunchAgents(ctx *engine.Context) []model.Finding {
 			fmt.Sprintf("%d launch item(s) match a persistence pattern and carry no valid signature", len(suspicious)),
 			model.SevHigh,
 			"A launch item referencing temp dirs, shared folders or download tools, whose program is unsigned, is a common macOS persistence trick.",
-			"Inspect each plist; remove anything you did not install.", cap50(suspicious)...))
+			"Inspect each plist; remove anything you did not install.", capEvidence(suspicious)...))
 	}
 	if len(benign) > 0 {
 		out = append(out, info("LA-SIGNED", "persistence",
 			fmt.Sprintf("%d signed launch item(s) match a pattern", len(benign)),
 			"Listed for review only. The pattern fired but the program carries a valid signature, so this is not treated as tampering.",
-			cap50(benign)...))
+			capEvidence(benign)...))
 	}
 	if len(unreadable) > 0 {
 		out = append(out, errFinding("LA-UNREADABLE", "persistence",
@@ -371,7 +371,7 @@ func macLaunchAgents(ctx *engine.Context) []model.Finding {
 	}
 	out = append(out, info("LA-INV", "persistence",
 		fmt.Sprintf("%d launch item(s)", len(inventory)),
-		"Review the inventory of auto-launched items.", cap50(inventory)...))
+		"Review the inventory of auto-launched items.", capEvidence(inventory)...))
 	return out
 }
 
@@ -400,7 +400,7 @@ func macKexts(ctx *engine.Context) []model.Finding {
 	if len(thirdParty) > 0 {
 		return []model.Finding{info("KEXT-3RD", "kernel",
 			fmt.Sprintf("%d third-party kernel extension(s) loaded", len(thirdParty)),
-			"Third-party kexts run in the kernel - verify each vendor is trusted.", cap50(thirdParty)...)}
+			"Third-party kexts run in the kernel - verify each vendor is trusted.", capEvidence(thirdParty)...)}
 	}
 	return []model.Finding{pass("KEXT-OK", "kernel", "Only Apple kernel extensions loaded")}
 }

@@ -88,26 +88,26 @@ func macProcesses(ctx *engine.Context) []model.Finding {
 			model.SevHigh,
 			"Software installed normally does not execute from a temporary or shared directory, and an unsigned binary doing so has no publisher to answer for it.",
 			"Identify each process before killing it; the path and parent tell you how it got there.",
-			cap50(suspicious)...))
+			capEvidence(suspicious)...))
 	}
 	if len(signedTemp) > 0 {
 		findings = append(findings, info("PROC-TEMPSIGNED", "process",
 			fmt.Sprintf("%d signed process(es) running from a world-writable directory", len(signedTemp)),
 			"Unusual placement but a valid signature, which installers and updaters legitimately produce. Listed so an unexpected one stands out.",
-			cap50(signedTemp)...))
+			capEvidence(signedTemp)...))
 	}
 	if len(vanished) > 0 {
 		findings = append(findings, fail("PROC-VANISHED", "process",
 			fmt.Sprintf("%d process(es) whose executable no longer exists", len(vanished)),
 			model.SevLow,
 			"Expected shortly after an update replaced the binary. Persisting across a reboot, or affecting something you did not update, is worth investigating.",
-			"Compare against your recent update history.", cap50(vanished)...))
+			"Compare against your recent update history.", capEvidence(vanished)...))
 	}
 	if len(unresolved) > 0 {
 		findings = append(findings, info("PROC-UNRESOLVED", "process",
 			fmt.Sprintf("%d process(es) reported without a path", len(unresolved)),
 			"ps gave a bare name for these, so their executable could not be located or verified. They are neither cleared nor suspected.",
-			cap50(unresolved)...))
+			capEvidence(unresolved)...))
 	}
 	if len(suspicious) == 0 && len(vanished) == 0 {
 		findings = append(findings, pass("PROC-OK", "process",
