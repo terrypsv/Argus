@@ -10,19 +10,46 @@ import (
 	"argus/internal/model"
 )
 
-// Windows has no separation between shipped and locally installed roots: the
-// machine's Trusted Root store holds Microsoft's anchors, the ones delivered by
-// the Trusted Root Program, and anything an administrator or installer added,
-// all mixed together. Nothing can be labelled local with confidence, so the
-// check reports the store as a whole and leaves the detection to the diff: a
-// root that appeared since the last scan is the signal.
+// microsoftAnchors are the publishers whose roots Windows ships in the machine
+// store by design. They are absent from AuthRoot because they are not third
+// party, so without this they would every one read as locally installed.
+//
+// This is a name test, and a name test is weak. It is used only to decide
+// whether a root is worth surfacing for review, never to clear one: a certificate
+// claiming to be Microsoft still appears in the full inventory, and the diff
+// still reports it as an addition.
+// Matching is deliberately restricted to the organisation fields. Testing the
+// whole subject would swallow "Symantec Enterprise Mobile Root for Microsoft",
+// a Symantec root that merely names Microsoft, and hide a third-party anchor.
+var microsoftAnchors = []string{
+	"o=microsoft corporation",
+	"ou=microsoft corporation",
+	"dc=microsoft",
+}
+
+// certStoreCheck reads the machine's trusted roots.
+//
+// Windows has no directory reserved for administrator-added anchors the way
+// Debian and macOS do, so "locally installed" has to be inferred: AuthRoot holds
+// what Microsoft's Trusted Root Program delivers, Root holds what the machine
+// actually trusts. A certificate present in Root but not in AuthRoot was put
+// there by something on this machine.
+//
+// That inference is what makes the check independent of any catalogue of
+// interception products: it does not need to recognise a vendor to notice that
+// a root was added.
 func certStoreCheck(ctx *engine.Context) []model.Finding {
-	out, err := psCmd(`Get-ChildItem Cert:\LocalMachine\Root | ForEach-Object { ` +
-		`"$($_.Thumbprint)|$($_.NotAfter.ToString('yyyy-MM-dd'))|$($_.Subject)" }`)
+	out, err := psCmd(
+		`$auth=@{}; ` +
+			`Get-ChildItem Cert:\LocalMachine\AuthRoot -ErrorAction SilentlyContinue | ` +
+			`ForEach-Object { $auth[$_.Thumbprint]=1 }; ` +
+			`Get-ChildItem Cert:\LocalMachine\Root -ErrorAction SilentlyContinue | ForEach-Object { ` +
+			`$l = if ($auth.ContainsKey($_.Thumbprint)) { "0" } else { "1" }; ` +
+			`"$($_.Thumbprint)|$($_.NotAfter.ToString('yyyy-MM-dd'))|$l|$($_.Subject)" }`)
 	if err != nil && strings.TrimSpace(out) == "" {
 		return []model.Finding{errFinding("CERT-ROOT-INV", "certificates",
 			"Could not read the trusted root store",
-			"PowerShell returned nothing for Cert:\\LocalMachine\\Root, so nothing is claimed about the machine's trust anchors.")}
+			"PowerShell returned nothing for the machine certificate stores, so nothing is claimed about the machine's trust anchors.")}
 	}
 
 	var all []certInfo
@@ -34,13 +61,12 @@ func certStoreCheck(ctx *engine.Context) []model.Finding {
 	return rootStoreFindings(all, "machine Trusted Root store")
 }
 
-// parseWinCertLine reads "THUMBPRINT|yyyy-mm-dd|Subject". The subject is taken
-// as the remainder rather than as a field, because a distinguished name can
-// itself contain the separator.
+// parseWinCertLine reads "THUMBPRINT|yyyy-mm-dd|localFlag|Subject". The subject
+// is taken as the remainder rather than as a field, because a distinguished name
+// can itself contain the separator.
 func parseWinCertLine(line string) (certInfo, bool) {
-	line = strings.TrimSpace(line)
-	parts := strings.SplitN(line, "|", 3)
-	if len(parts) < 3 {
+	parts := strings.SplitN(strings.TrimSpace(line), "|", 4)
+	if len(parts) < 4 {
 		return certInfo{}, false
 	}
 	thumb := strings.ToLower(strings.TrimSpace(parts[0]))
@@ -51,11 +77,13 @@ func parseWinCertLine(line string) (certInfo, bool) {
 	if err != nil {
 		return certInfo{}, false
 	}
-	subject := strings.TrimSpace(parts[2])
+	subject := strings.TrimSpace(parts[3])
 	if subject == "" {
 		return certInfo{}, false
 	}
-	// Every certificate in this store is trusted the same way, and none of them
-	// can be attributed to a local install with confidence.
-	return certInfo{subject: subject, expires: expires, sha1: thumb, local: false}, true
+	// Outside the Trusted Root Program and not one of Windows' own anchors.
+	local := strings.TrimSpace(parts[2]) == "1" &&
+		!containsAny(strings.ToLower(subject), microsoftAnchors...)
+
+	return certInfo{subject: subject, expires: expires, sha1: thumb, local: local}, true
 }
