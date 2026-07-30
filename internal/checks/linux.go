@@ -358,12 +358,12 @@ func suidCheck(ctx *engine.Context) []model.Finding {
 			"SUID/SGID binary in a writable/temp location", model.SevHigh,
 			"SUID binaries here are a common privilege-escalation backdoor.",
 			"Investigate each; remove the SUID bit (`chmod -s`) if not required.",
-			cap50(suspicious)...))
+			capEvidence(suspicious)...))
 	}
 	out = append(out, info("SUID-INV", "disk",
 		fmt.Sprintf("%d SUID/SGID binaries found", len(all)),
 		"Review the inventory and compare against a known-good host.",
-		cap50(all)...))
+		capEvidence(all)...))
 	return out
 }
 
@@ -404,13 +404,13 @@ func worldWritableCheck(ctx *engine.Context) []model.Finding {
 		out = append(out, fail("WW-SYSTEM", "disk",
 			"World-writable file(s) in a system directory", model.SevHigh,
 			"Any local user can modify these; a perfect persistence/tamper vector.",
-			"Tighten permissions (`chmod o-w`).", cap50(wwSystem)...))
+			"Tighten permissions (`chmod o-w`).", capEvidence(wwSystem)...))
 	}
 	if len(wwDirNoSticky) > 0 {
 		out = append(out, fail("WW-DIR", "disk",
 			"World-writable directory without sticky bit", model.SevLow,
 			"Users can delete/rename each other's files here.",
-			"Add the sticky bit (`chmod +t`) or restrict write access.", cap50(wwDirNoSticky)...))
+			"Add the sticky bit (`chmod +t`) or restrict write access.", capEvidence(wwDirNoSticky)...))
 	}
 	if len(out) == 0 {
 		out = append(out, pass("WW-OK", "disk", "No dangerous world-writable entries found"))
@@ -491,7 +491,7 @@ func cronCheck(ctx *engine.Context) []model.Finding {
 		out = append(out, fail("CRON-SUSP", "persistence",
 			"Suspicious cron entry(ies)", model.SevHigh,
 			"Cron jobs downloading or executing from temp dirs are a common persistence mechanism.",
-			"Review each line; remove anything you did not create.", cap50(suspicious)...))
+			"Review each line; remove anything you did not create.", capEvidence(suspicious)...))
 	} else {
 		out = append(out, pass("CRON-OK", "persistence",
 			fmt.Sprintf("No suspicious cron entries (%d scanned)", total)))
@@ -525,7 +525,7 @@ func systemdCheck(ctx *engine.Context) []model.Finding {
 		out = append(out, fail("SVC-SUSP", "persistence",
 			"Suspicious systemd service(s)", model.SevHigh,
 			"A service whose ExecStart runs from a temp/writable path is a strong persistence indicator.",
-			"Inspect the unit files and disable anything unexpected.", cap50(suspicious)...))
+			"Inspect the unit files and disable anything unexpected.", capEvidence(suspicious)...))
 	} else {
 		out = append(out, pass("SVC-OK", "persistence",
 			fmt.Sprintf("No suspicious systemd services (%d scanned)", total)))
@@ -667,7 +667,7 @@ func portsCheck(ctx *engine.Context) []model.Finding {
 	inventory = uniqueStrings(inventory)
 	out = append(out, info("NET-LISTEN", "network",
 		fmt.Sprintf("%d listening socket(s), TCP and UDP", len(inventory)),
-		"Every open port is attack surface - confirm each is expected.", cap50(inventory)...))
+		"Every open port is attack surface - confirm each is expected.", capEvidence(inventory)...))
 	return out
 }
 
@@ -760,26 +760,26 @@ func processCheck(ctx *engine.Context) []model.Finding {
 			"Process(es) running from an anonymous memory file", model.SevCritical,
 			"A memfd-backed executable never existed on disk - the signature of fileless execution.",
 			"Investigate now: `ls -l /proc/<pid>/exe`, `cat /proc/<pid>/maps`, `ss -tnp | grep <pid>`.",
-			cap50(memfd)...))
+			capEvidence(memfd)...))
 	}
 	if len(deletedSuspect) > 0 {
 		out = append(out, fail("PROC-DELETED", "process",
 			"Process(es) running from a deleted non-system binary", model.SevHigh,
 			"The image was removed from disk and did not come from a package-managed location.",
 			"Inspect these PIDs (`ls -l /proc/<pid>/exe`, `cat /proc/<pid>/maps`) before killing them.",
-			cap50(deletedSuspect)...))
+			capEvidence(deletedSuspect)...))
 	}
 	if len(tempExec) > 0 {
 		out = append(out, fail("PROC-TEMPEXEC", "process",
 			"Process(es) executing from a temp directory", model.SevHigh,
 			"Legitimate services rarely run from /tmp or /dev/shm.",
-			"Identify the parent and origin of each process.", cap50(tempExec)...))
+			"Identify the parent and origin of each process.", capEvidence(tempExec)...))
 	}
 	if len(deletedSystem) > 0 {
 		out = append(out, info("PROC-UPGRADED", "process",
 			fmt.Sprintf("%d process(es) still running a replaced system binary", len(deletedSystem)),
 			"Their on-disk image was replaced by a package upgrade - expected on a rolling distribution. Restart the services (or reboot) so they run the patched code.",
-			cap50(deletedSystem)...))
+			capEvidence(deletedSystem)...))
 	}
 	if len(out) == 0 {
 		out = append(out, pass("PROC-OK", "process", "No obvious process anomalies"))

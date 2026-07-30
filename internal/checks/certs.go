@@ -36,8 +36,11 @@ type certInfo struct {
 // first so that two certificates sharing a subject stay distinguishable, and so
 // that a re-issued certificate reads as a change rather than as noise.
 func (c certInfo) label() string {
-	return fmt.Sprintf("%s  %s  (expires %s)",
-		c.sha1[:16], trunc(c.subject, 90), c.expires.Format("2006-01-02"))
+	// Subject first so the sorted inventory reads alphabetically, fingerprint
+	// last so that two certificates sharing a subject stay distinguishable and
+	// a re-issued one reads as a change rather than as noise.
+	return fmt.Sprintf("%s  (expires %s)  %s",
+		trunc(c.subject, 90), c.expires.Format("2006-01-02"), c.sha1[:16])
 }
 
 // interceptionMarkers name products that install a root in order to decrypt
@@ -145,27 +148,27 @@ func rootStoreFindings(all []certInfo, vendorLabel string) []model.Finding {
 			model.SevMedium,
 			"Traffic to every HTTPS site on this machine is decrypted and re-encrypted by the holder of this root. That is how antivirus and corporate proxies inspect TLS, and it means a leak of that private key would let anyone forge any site for this host.",
 			"If this is deliberate, record the decision: argus accept CERT-INTERCEPT --reason \"...\". Otherwise remove the root and find out how it got there.",
-			cap50(intercept)...))
+			capEvidence(intercept)...))
 	}
 
 	if len(localOnes) > 0 {
 		out = append(out, info("CERT-LOCAL", "certificates",
 			fmt.Sprintf("%d trusted root(s) were added on this machine", len(localOnes)),
 			"These are not shipped by the operating system vendor. Each one can vouch for any domain, so each should correspond to something you installed on purpose.",
-			cap50(localOnes)...))
+			capEvidence(localOnes)...))
 	}
 
 	if len(expired) > 0 {
 		out = append(out, info("CERT-EXPIRED", "certificates",
 			fmt.Sprintf("%d trusted root(s) have expired", len(expired)),
 			"An expired root cannot validate a new chain, so this is housekeeping rather than exposure. Not scored for that reason.",
-			cap50(expired)...))
+			capEvidence(expired)...))
 	}
 
 	out = append(out, info("CERT-ROOT-INV", "certificates",
 		fmt.Sprintf("%d trusted root certificate(s) (%s)", len(inventory), vendorLabel),
 		"Any one of these can vouch for any domain. A root that appeared since the previous scan is the signal worth acting on; compare with argus diff.",
-		cap50(inventory)...))
+		capEvidence(inventory)...))
 
 	return out
 }

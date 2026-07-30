@@ -277,7 +277,7 @@ func winPorts(ctx *engine.Context) []model.Finding {
 	inventory = uniqueStrings(inventory)
 	findings = append(findings, info("NET-LISTEN", "network",
 		fmt.Sprintf("%d listening TCP socket(s)", len(inventory)),
-		"Confirm each open port is expected.", cap50(inventory)...))
+		"Confirm each open port is expected.", capEvidence(inventory)...))
 	return findings
 }
 
@@ -392,17 +392,17 @@ func winStartup(ctx *engine.Context) []model.Finding {
 		out = append(out, fail("RUN-SUSP", "persistence",
 			"Unsigned autostart entry(ies) in a user-writable location", model.SevHigh,
 			"These entries run at logon from temp/AppData/ProgramData, or use encoded or living-off-the-land commands, and carry no valid Authenticode signature.",
-			"Verify each one; remove anything you did not install.", cap50(suspicious)...))
+			"Verify each one; remove anything you did not install.", capEvidence(suspicious)...))
 	}
 	if len(vouched) > 0 {
 		out = append(out, info("RUN-SIGNED", "persistence",
 			fmt.Sprintf("%d signed autostart entry(ies) in user-writable paths", len(vouched)),
 			"Per-user installs from real publishers. Signature valid, so not treated as persistence - review anyway if you do not recognise one.",
-			cap50(vouched)...))
+			capEvidence(vouched)...))
 	}
 	out = append(out, info("RUN-INV", "persistence",
 		fmt.Sprintf("%d autostart entry(ies)", len(inventory)),
-		"Review the startup inventory.", cap50(inventory)...))
+		"Review the startup inventory.", capEvidence(inventory)...))
 	return out
 }
 
@@ -425,7 +425,7 @@ func winTasks(ctx *engine.Context) []model.Finding {
 		return []model.Finding{fail("TASK-SUSP", "persistence",
 			"Suspicious scheduled task action(s)", model.SevHigh,
 			"Scheduled tasks are a common, resilient persistence mechanism.",
-			"Inspect each with `schtasks /query /tn <name> /v`.", cap50(suspicious)...)}
+			"Inspect each with `schtasks /query /tn <name> /v`.", capEvidence(suspicious)...)}
 	}
 	return []model.Finding{pass("TASK-OK", "persistence", "No obviously suspicious scheduled tasks")}
 }

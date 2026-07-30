@@ -76,6 +76,12 @@ func LoadReport(path string) (model.Report, error) {
 // bind a fresh port from the dynamic range on every boot, so those additions
 // mean nothing.
 func noisyEvidence(id, line string) bool {
+	// "... (+N more)" stands in for truncated entries. Its counter moves with
+	// the inventory size, so comparing it would report a change on every scan
+	// where anything at all moved, and drown the entry that actually appeared.
+	if strings.HasPrefix(strings.TrimSpace(line), "... (+") {
+		return true
+	}
 	if id != "NET-LISTEN" {
 		return false
 	}

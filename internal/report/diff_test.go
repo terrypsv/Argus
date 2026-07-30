@@ -146,3 +146,67 @@ func TestCompareOnIdenticalReports(t *testing.T) {
 		t.Errorf("got %d change(s) comparing a report with itself, want 0", len(d.Changes))
 	}
 }
+
+// Adding one certificate to a store of 121 produced two phantom changes and hid
+// the real one: the evidence list was capped at 50 entries plus a "... (+N
+// more)" line, and that counter moved. The marker is metadata, not evidence.
+func TestTruncationMarkerIsNotAChange(t *testing.T) {
+	before := mkReport(model.Finding{
+		ID: "CERT-ROOT-INV", Severity: model.SevInfo, Passed: true,
+		Evidence: []string{"DigiCert Root", "ISRG Root X1", "... (+71 more)"},
+	})
+	after := mkReport(model.Finding{
+		ID: "CERT-ROOT-INV", Severity: model.SevInfo, Passed: true,
+		Evidence: []string{"DigiCert Root", "ISRG Root X1", "... (+72 more)"},
+	})
+
+	if d := Compare(before, after); len(d.Changes) != 0 {
+		t.Errorf("got %d change(s), want 0: only the truncation counter moved", len(d.Changes))
+	}
+}
+
+// A genuinely new root must still surface, alongside a moving marker.
+func TestNewCertificateSurfacesDespiteTruncationMarker(t *testing.T) {
+	before := mkReport(model.Finding{
+		ID: "CERT-ROOT-INV", Severity: model.SevInfo, Passed: true,
+		Evidence: []string{"DigiCert Root", "... (+71 more)"},
+	})
+	after := mkReport(model.Finding{
+		ID: "CERT-ROOT-INV", Severity: model.SevInfo, Passed: true,
+		Evidence: []string{"DigiCert Root", "Faux CA de test", "... (+71 more)"},
+	})
+
+	d := Compare(before, after)
+	c := findChange(t, d, KindAppeared, "CERT-ROOT-INV")
+	if c == nil {
+		t.Fatal("the new root certificate was not reported")
+	}
+	if c.Line != "Faux CA de test" {
+		t.Errorf("line = %q, want the new certificate", c.Line)
+	}
+	if !c.Alarming {
+		t.Error("a new trust anchor must require attention")
+	}
+	if len(d.Changes) != 1 {
+		t.Errorf("got %d change(s), want exactly 1", len(d.Changes))
+	}
+}
+
+func TestDisplayEvidenceKeepsDataIntact(t *testing.T) {
+	var many []string
+	for i := 0; i < 120; i++ {
+		many = append(many, "entree")
+	}
+	shown, hidden := displayEvidence(many)
+	if len(shown)+hidden != len(many) {
+		t.Errorf("shown %d + hidden %d != %d", len(shown), hidden, len(many))
+	}
+	if len(shown) > displayEvidenceLimit {
+		t.Errorf("shown = %d, want at most %d", len(shown), displayEvidenceLimit)
+	}
+
+	short := []string{"a", "b"}
+	if shown, hidden := displayEvidence(short); hidden != 0 || len(shown) != 2 {
+		t.Errorf("a short list must be shown whole, got %d shown / %d hidden", len(shown), hidden)
+	}
+}
