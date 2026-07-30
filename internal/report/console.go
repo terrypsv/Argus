@@ -125,8 +125,13 @@ func printFinding(w io.Writer, p palette, f model.Finding) {
 	if f.Detail != "" {
 		fmt.Fprintf(w, "        %s\n", f.Detail)
 	}
-	for _, e := range f.Evidence {
+	shown, hidden := displayEvidence(f.Evidence)
+	for _, e := range shown {
 		fmt.Fprintf(w, "        %s· %s%s\n", p.gray, e, p.reset)
+	}
+	if hidden > 0 {
+		fmt.Fprintf(w, "        %s· and %d more, see the JSON or Markdown report%s\n",
+			p.gray, hidden, p.reset)
 	}
 	if f.Remediation != "" {
 		fmt.Fprintf(w, "        %s→ %s%s\n", p.cyan, f.Remediation, p.reset)
@@ -270,4 +275,16 @@ func Brief(w io.Writer, rep model.Report) {
 		rep.Integrity.Score, rep.Integrity.Grade,
 		rep.Counts["failed"], rep.Counts["accepted"], rep.Counts["errors"],
 		rep.Verdict)
+}
+
+// displayEvidenceLimit is a readability limit, not a data limit. The full list
+// stays in the JSON, because that is what argus diff compares.
+const displayEvidenceLimit = 40
+
+// displayEvidence returns the lines to print and how many were held back.
+func displayEvidence(all []string) (shown []string, hidden int) {
+	if len(all) <= displayEvidenceLimit {
+		return all, 0
+	}
+	return all[:displayEvidenceLimit], len(all) - displayEvidenceLimit
 }

@@ -62,7 +62,7 @@ func macAccounts(ctx *engine.Context) []model.Finding {
 				fmt.Sprintf("%d account(s) other than root hold UID 0", len(uid0)),
 				model.SevCritical,
 				"A second UID 0 account is full root access under another name, and is a classic way to keep privileged access after a compromise.",
-				"Remove the account or give it a normal UID.", cap50(uid0)...))
+				"Remove the account or give it a normal UID.", capEvidence(uid0)...))
 		default:
 			out = append(out, pass("ACC-UID0", "accounts", "Only root holds UID 0"))
 		}
@@ -353,5 +353,5 @@ func macSystemExtensions(ctx *engine.Context) []model.Finding {
 	return []model.Finding{info("SYSEXT-ACTIVE", "kernel",
 		fmt.Sprintf("%d active system extension(s)", len(active)),
 		"System extensions run with high privilege and can inspect network traffic or filter files. Confirm each vendor is expected.",
-		cap50(active)...)}
+		capEvidence(active)...)}
 }
