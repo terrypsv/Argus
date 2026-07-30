@@ -33,6 +33,12 @@ func TestAxisOf(t *testing.T) {
 		{"SSV-OFF", AxisHardening},
 		{"UPD-NOCHECK", AxisHardening},
 		{"SYSEXT-ACTIVE", AxisHardening},
+
+		// A trust anchor is configuration. Putting it on the integrity axis would
+		// make every machine with an antivirus that inspects TLS read as tampered.
+		{"CERT-INTERCEPT", AxisHardening},
+		{"CERT-LOCAL", AxisHardening},
+		{"CERT-ROOT-INV", AxisHardening},
 		{"KRN-HARDENING", AxisHardening},
 		{"MNT-NOEXEC-TMP", AxisHardening},
 		{"FW-NONE", AxisHardening},

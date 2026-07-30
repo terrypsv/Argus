@@ -26,6 +26,7 @@ func osChecks() []check {
 		{Name: "startup", Category: "persistence", Fn: winStartup},
 		{Name: "scheduled-tasks", Category: "persistence", Fn: winTasks},
 		{Name: "local-admins", Category: "accounts", Fn: winAdmins},
+		{Name: "root-certificates", Category: "certificates", Fn: certStoreCheck},
 	}
 }
 
