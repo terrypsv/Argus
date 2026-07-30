@@ -35,6 +35,7 @@ func osChecks() []check {
 		{Name: "firewall", Category: "network", Fn: firewallCheck},
 		{Name: "process-anomalies", Category: "process", Fn: processCheck},
 		{Name: "package-verify", Category: "integrity", Fn: pkgVerifyCheck},
+		{Name: "root-certificates", Category: "certificates", Fn: certStoreCheck},
 	}
 }
 
