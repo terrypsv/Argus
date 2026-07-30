@@ -32,6 +32,7 @@ var watchedInventories = map[string]bool{
 	"TASK-SUSP": true, "CRON-SUSP": true, "SVC-SUSP": true,
 	"PROC-DELETED": true, "PROC-TEMPEXEC": true, "PROC-MEMFD": true,
 	"ADM-LIST": true, "ACC-UID0": true, "INTEG-CHANGED": true, "KEXT-3RD": true,
+	"CERT-ROOT-INV": true, "CERT-LOCAL": true, "CERT-INTERCEPT": true,
 }
 
 // Change is one difference between two scans.

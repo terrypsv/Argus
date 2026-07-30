@@ -31,6 +31,7 @@ func osChecks() []check {
 		{Name: "remote-access", Category: "ssh", Fn: macRemoteAccess},
 		{Name: "system-integrity", Category: "hardening", Fn: macSystemIntegrity},
 		{Name: "process-anomalies", Category: "process", Fn: macProcesses},
+		{Name: "root-certificates", Category: "certificates", Fn: certStoreCheck},
 	}
 }
 

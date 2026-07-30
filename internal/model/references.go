@@ -95,8 +95,10 @@ var exactReferences = map[string][]Reference{
 	"RM-ON":        {mitre("T1021.005", "VNC")},
 	// Disabling the signed system volume is a deliberate weakening of the
 	// platform's code-signing enforcement, not a configuration preference.
-	"SSV-OFF":       {mitre("T1553.006", "Code Signing Policy Modification")},
-	"SYSEXT-ACTIVE": {mitre("T1547.006", "Kernel Modules and Extensions")},
+	"SSV-OFF":        {mitre("T1553.006", "Code Signing Policy Modification")},
+	"CERT-INTERCEPT": {mitre("T1553.004", "Install Root Certificate")},
+	"CERT-LOCAL":     {mitre("T1553.004", "Install Root Certificate")},
+	"SYSEXT-ACTIVE":  {mitre("T1547.006", "Kernel Modules and Extensions")},
 
 	// --- Defences -----------------------------------------------------------
 	"AV-RTP":  {mitre("T1562.001", "Disable or Modify Tools")},
