@@ -20,6 +20,7 @@ func commonChecks() []check {
 	return []check{
 		{Name: "system-info", Category: "system", Fn: systemInfoCheck},
 		{Name: "file-integrity", Category: "integrity", Fn: integrityCheck},
+		{Name: "browser-extensions", Category: "browser", Fn: browserExtensionsCheck},
 	}
 }
 
