@@ -26,3 +26,7 @@ argus-baseline.json
 # Logs de scan
 *.log
 argus-exceptions.json
+
+# profils de couverture: produits par une mesure, jamais versionnes
+couverture
+*.out
