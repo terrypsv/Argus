@@ -18,13 +18,20 @@ type volume struct {
 	readOnly bool
 }
 
-func diskUsageCheck(ctx *engine.Context) []model.Finding {
-	var vols []volume
+// readVolumes lit les volumes du systeme. C'est une variable pour que les
+// regles au-dessus soient verifiables sans disque: les seuils, l'exclusion
+// des volumes en lecture seule et le cas sans donnee sont des decisions, et
+// une decision non testee est une valeur que l'on peut changer sans que rien
+// ne proteste.
+var readVolumes = func() []volume {
 	if runtime.GOOS == "windows" {
-		vols = windowsVolumes()
-	} else {
-		vols = unixVolumes()
+		return windowsVolumes()
 	}
+	return unixVolumes()
+}
+
+func diskUsageCheck(ctx *engine.Context) []model.Finding {
+	vols := readVolumes()
 	if len(vols) == 0 {
 		return []model.Finding{info("DISK-NONE", "disk", "No disk usage data available", "")}
 	}
