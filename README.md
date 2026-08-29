@@ -1,3 +1,6 @@
+<img width="762" height="184" alt="ascii-art-text" src="https://github.com/user-attachments/assets/79f8ff5e-1ade-40cd-95fb-46a50a2ea864" />
+
+
 # Argus
 
 **Scanner de posture de sécurité multiplateforme.** Argus audite le noyau, les
