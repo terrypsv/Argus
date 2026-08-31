@@ -93,8 +93,13 @@ func project(m *model.Report, mf *model.Finding) finding.Finding {
 	}
 
 	// References publiees (MITRE ATT&CK, ANSSI-BP-028, CIS), reprises une a une.
+	// Les champs sont des types nommes cote Argus (model.Framework, etc.), d'ou le cast.
 	for _, r := range mf.References {
-		out.References = append(out.References, finding.Reference{Framework: r.Framework, ID: r.ID, Title: r.Title})
+		out.References = append(out.References, finding.Reference{
+			Framework: string(r.Framework),
+			ID:        string(r.ID),
+			Title:     string(r.Title),
+		})
 	}
 	return out
 }
