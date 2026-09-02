@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"argus/internal/engine"
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/engine"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 // These checks close the gap between macOS and the other two platforms, which

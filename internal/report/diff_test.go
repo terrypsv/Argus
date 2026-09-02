@@ -3,7 +3,7 @@ package report
 import (
 	"testing"
 
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 func mkReport(findings ...model.Finding) model.Report {

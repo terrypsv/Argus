@@ -14,8 +14,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 
-	"argus/internal/finding"
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/finding"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 // ToSchema convertit un model.Report d'Argus en finding.Report partage.

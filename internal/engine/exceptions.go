@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 // DateLayout is the date format used in the exception file.

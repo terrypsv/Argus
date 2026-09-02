@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"argus/internal/engine"
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/engine"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 // runCmd executes a command with a hard timeout and returns trimmed stdout.
@@ -178,7 +178,7 @@ func trunc(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
-	return s[:n] + "…"
+	return s[:n] + "â€¦"
 }
 
 // hasAnyPrefix reports whether s starts with any of the given prefixes.

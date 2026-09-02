@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 //go:embed index.html
