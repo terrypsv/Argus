@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"argus/internal/engine"
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/engine"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 func osChecks() []check {
@@ -472,7 +472,7 @@ func parseNetLocalgroup(raw string) string {
 			continue
 		}
 		if strings.HasPrefix(lower(ll), "the command completed") ||
-			strings.HasPrefix(lower(ll), "la commande s'est terminée") {
+			strings.HasPrefix(lower(ll), "la commande s'est terminÃ©e") {
 			collect = false
 		}
 		if collect && ll != "" {

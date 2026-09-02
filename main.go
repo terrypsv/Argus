@@ -17,11 +17,11 @@ import (
 	"strings"
 	"time"
 
-	"argus/internal/checks"
-	"argus/internal/engine"
-	"argus/internal/model"
-	"argus/internal/report"
-	"argus/internal/webui"
+	"github.com/terrypsv/Argus/internal/checks"
+	"github.com/terrypsv/Argus/internal/engine"
+	"github.com/terrypsv/Argus/internal/model"
+	"github.com/terrypsv/Argus/internal/report"
+	"github.com/terrypsv/Argus/internal/webui"
 )
 
 func main() {

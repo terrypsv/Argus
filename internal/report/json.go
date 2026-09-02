@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"io"
 
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 // JSON writes the report as indented JSON, suitable for CI pipelines,

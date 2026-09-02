@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 // rapportDEssai fabrique un rapport qui exerce chaque chemin des rapporteurs:

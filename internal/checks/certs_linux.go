@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"argus/internal/engine"
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/engine"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 // Debian and Red Hat both reserve a directory for administrator-added anchors,

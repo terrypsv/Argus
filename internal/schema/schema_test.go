@@ -7,9 +7,9 @@ import (
 	"testing"
 	"time"
 
-	"argus/internal/finding"
-	"argus/internal/model"
-	"argus/internal/schema"
+	"github.com/terrypsv/Argus/internal/finding"
+	"github.com/terrypsv/Argus/internal/model"
+	"github.com/terrypsv/Argus/internal/schema"
 )
 
 func sampleReport() *model.Report {

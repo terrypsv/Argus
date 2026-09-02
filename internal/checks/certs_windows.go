@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"argus/internal/engine"
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/engine"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 // microsoftAnchors are the publishers whose roots Windows ships in the machine
