@@ -3,8 +3,8 @@ package checks
 import (
 	"fmt"
 
-	"argus/internal/engine"
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/engine"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 // systemInfoCheck records the environment as an informational finding.

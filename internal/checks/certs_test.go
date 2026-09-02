@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 func findByID(findings []model.Finding, id string) *model.Finding {

@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"argus/internal/engine"
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/engine"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 // worldWritableExec are directories any local account can write to. A process

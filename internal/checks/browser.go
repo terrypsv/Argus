@@ -13,8 +13,8 @@ import (
 	"sort"
 	"strings"
 
-	"argus/internal/engine"
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/engine"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 // Browser extensions are the widest hole in a workstation's posture, and the

@@ -10,8 +10,8 @@ import (
 	"sort"
 	"time"
 
-	"argus/internal/engine"
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/engine"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 // baseline is the on-disk integrity snapshot.

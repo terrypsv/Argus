@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 // A trusted root certificate is the most leveraged object on a machine. Anyone

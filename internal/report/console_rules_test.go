@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 // Ce fichier garde ce que l'affichage decide, pas la facon dont il le

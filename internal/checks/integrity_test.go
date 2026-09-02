@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"argus/internal/engine"
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/engine"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 // integrityCheck ne touche le systeme que par des chemins: un repertoire

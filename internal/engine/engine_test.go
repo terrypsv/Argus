@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 func failing(id string, sev model.Severity) model.Finding {

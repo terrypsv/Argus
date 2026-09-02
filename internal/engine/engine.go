@@ -10,13 +10,13 @@ import (
 	"strings"
 	"time"
 
-	"argus/internal/model"
+	"github.com/terrypsv/Argus/internal/model"
 )
 
 // Version of the tool, surfaced in reports.
 //
 // It is a var rather than a const so a release build can stamp the git tag into
-// the binary with -ldflags "-X argus/internal/engine.Version=v1.2.3". A binary
+// the binary with -ldflags "-X github.com/terrypsv/Argus/internal/engine.Version=v1.2.3". A binary
 // that cannot say which version it is makes a report impossible to reproduce.
 var Version = "dev"
 
@@ -92,7 +92,7 @@ func New(checks []Check, cfg Config) *Runner {
 			Config: cfg,
 			Host:   host,
 			Log: func(format string, args ...any) {
-				fmt.Fprintf(os.Stderr, "  … "+format+"\n", args...)
+				fmt.Fprintf(os.Stderr, "  â€¦ "+format+"\n", args...)
 			},
 		},
 	}
