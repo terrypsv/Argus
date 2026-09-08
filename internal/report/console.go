@@ -190,10 +190,10 @@ func gauge(w io.Writer, p palette, label string, a model.AxisScore,
 	kept := int(float64(a.Score)/100*gaugeWidth + 0.5)
 	bar.WriteString(strings.Repeat("\u2588", kept))
 	for _, f := range lost {
-		bar.WriteString(strings.Repeat("â–’", cells(f.Severity.Weight())))
+		bar.WriteString(strings.Repeat("\u2592", cells(f.Severity.Weight())))
 	}
 	for _, f := range waived {
-		bar.WriteString(strings.Repeat("â–‘", cells(f.Severity.Weight())))
+		bar.WriteString(strings.Repeat("\u2591", cells(f.Severity.Weight())))
 	}
 	cut := []rune(bar.String())
 	if len(cut) > gaugeWidth {
