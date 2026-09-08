@@ -472,7 +472,7 @@ func parseNetLocalgroup(raw string) string {
 			continue
 		}
 		if strings.HasPrefix(lower(ll), "the command completed") ||
-			strings.HasPrefix(lower(ll), "la commande s'est terminÃ©e") {
+			strings.HasPrefix(lower(ll), "la commande s'est termin\u00e9e") {
 			collect = false
 		}
 		if collect && ll != "" {

@@ -92,7 +92,7 @@ func New(checks []Check, cfg Config) *Runner {
 			Config: cfg,
 			Host:   host,
 			Log: func(format string, args ...any) {
-				fmt.Fprintf(os.Stderr, "  â€¦ "+format+"\n", args...)
+				fmt.Fprintf(os.Stderr, "  \u2026 "+format+"\n", args...)
 			},
 		},
 	}

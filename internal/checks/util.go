@@ -178,7 +178,7 @@ func trunc(s string, n int) string {
 	if len(s) <= n {
 		return s
 	}
-	return s[:n] + "â€¦"
+	return s[:n] + "\u2026"
 }
 
 // hasAnyPrefix reports whether s starts with any of the given prefixes.

@@ -35,7 +35,7 @@ func Console(w io.Writer, rep model.Report, color bool) {
 	fmt.Fprintf(w, "\n%s%s  ARGUS  security posture report%s\n", p.bold, p.cyan, p.reset)
 	fmt.Fprintf(w, "%s  %s  -  Editeur : %s  -  %s%s\n",
 		p.gray, rep.Version, rep.Author, rep.Repository, p.reset)
-	fmt.Fprintf(w, "%sâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€%s\n", p.gray, p.reset)
+	fmt.Fprintf(w, "%s\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500%s\n", p.gray, p.reset)
 	fmt.Fprintf(w, "Host      : %s (%s/%s)\n", rep.Host.Hostname, rep.Host.OS, rep.Host.Arch)
 	fmt.Fprintf(w, "Platform  : %s\n", rep.Host.Platform)
 	fmt.Fprintf(w, "Kernel    : %s\n", rep.Host.Kernel)
@@ -127,14 +127,14 @@ func printFinding(w io.Writer, p palette, f model.Finding) {
 	}
 	shown, hidden := displayEvidence(f.Evidence)
 	for _, e := range shown {
-		fmt.Fprintf(w, "        %sÂ· %s%s\n", p.gray, e, p.reset)
+		fmt.Fprintf(w, "        %s\u00b7 %s%s\n", p.gray, e, p.reset)
 	}
 	if hidden > 0 {
-		fmt.Fprintf(w, "        %sÂ· and %d more, see the JSON or Markdown report%s\n",
+		fmt.Fprintf(w, "        %s\u00b7 and %d more, see the JSON or Markdown report%s\n",
 			p.gray, hidden, p.reset)
 	}
 	if f.Remediation != "" {
-		fmt.Fprintf(w, "        %sâ†’ %s%s\n", p.cyan, f.Remediation, p.reset)
+		fmt.Fprintf(w, "        %s\u2192 %s%s\n", p.cyan, f.Remediation, p.reset)
 	}
 	if f.Superseded != "" {
 		fmt.Fprintf(w, "        %scounted once, through %s%s\n", p.gray, f.Superseded, p.reset)
@@ -188,7 +188,7 @@ func gauge(w io.Writer, p palette, label string, a model.AxisScore,
 
 	var bar strings.Builder
 	kept := int(float64(a.Score)/100*gaugeWidth + 0.5)
-	bar.WriteString(strings.Repeat("â–ˆ", kept))
+	bar.WriteString(strings.Repeat("\u2588", kept))
 	for _, f := range lost {
 		bar.WriteString(strings.Repeat("â–’", cells(f.Severity.Weight())))
 	}
