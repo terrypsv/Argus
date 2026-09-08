@@ -25,6 +25,11 @@ import (
 )
 
 func main() {
+	// Avant toute sortie: sans cela, une console Windows en page de code
+	// heritee rend les traits, les puces et les fleches en caracteres de
+	// remplacement, et le rapport devient illisible.
+	report.EnableUTF8()
+
 	// A double-click gives no chance to type a subcommand, so offer the choice
 	// once, there and only there. From a terminal or a CI job this is silent.
 	if len(os.Args) == 1 {
@@ -440,7 +445,8 @@ Usage:
   argus accept <ID> --reason  Accept a reviewed finding as a known exception.
   argus unaccept <ID>         Revoke a previously accepted finding.
   argus exceptions            List what is currently being carried.
-  argus diff <old> <new>      Compare two JSON reports.\n  argus serve                 Scan, then open the report in your browser.
+  argus diff <old> <new>      Compare two JSON reports.
+  argus serve                 Scan, then open the report in your browser.
                               --report <file> serves a saved JSON instead.
   argus version               Print the version.
 
