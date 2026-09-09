@@ -210,7 +210,7 @@ func gauge(w io.Writer, p palette, label string, a model.AxisScore,
 		items = append(items, fmt.Sprintf("%s -%g", f.ID, f.Severity.Weight()))
 	}
 	for _, f := range waived {
-		items = append(items, fmt.Sprintf("%s (-%g waived)", f.ID, f.Severity.Weight()))
+		items = append(items, fmt.Sprintf("%s (-%g renoncé)", f.ID, f.Severity.Weight()))
 	}
 	if len(items) == 0 {
 		fmt.Fprintf(w, "   %saucune pénalité%s\n\n", p.gray, p.reset)
