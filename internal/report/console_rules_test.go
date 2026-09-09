@@ -62,7 +62,7 @@ func TestBriefEstUneLigneAnalysable(t *testing.T) {
 func TestExposureSplitSepareLeDistantDuLocal(t *testing.T) {
 	rep := model.Report{Findings: []model.Finding{{
 		ID: "NET-LISTEN", Evidence: []string{
-			"tcp/22 (all interfaces)",
+			"tcp/22 (toutes interfaces)",
 			"tcp/80 (all interfaces)",
 			"tcp/631 (127.0.0.1)",
 			"tcp/5432 (localhost)",
@@ -129,7 +129,7 @@ func TestExposureSplitSansSocket(t *testing.T) {
 func TestUneExceptionNEstJamaisMeleeAuxReussites(t *testing.T) {
 	sortie := rendre(rapportDEssai())
 
-	position := strings.Index(sortie, "ACCEPTED")
+	position := strings.Index(sortie, "ACCEPTÉS")
 	if position < 0 {
 		t.Fatal("les exceptions acceptees doivent avoir leur propre section")
 	}
@@ -156,7 +156,7 @@ func TestUneExceptionNEstJamaisMeleeAuxReussites(t *testing.T) {
 // corrections. Le taire donnerait un bon score sans dire pourquoi.
 func TestLeCalibreNommeCeQuiEstRenonce(t *testing.T) {
 	sortie := rendre(rapportDEssai())
-	position := strings.Index(sortie, "ACCEPTED")
+	position := strings.Index(sortie, "ACCEPTÉS")
 	if position < 0 {
 		t.Fatal("section des exceptions absente")
 	}
@@ -165,7 +165,7 @@ func TestLeCalibreNommeCeQuiEstRenonce(t *testing.T) {
 	if !strings.Contains(entete, "SMB1-OFF") {
 		t.Error("le calibre doit nommer l'exception qui ameliore le score")
 	}
-	if !strings.Contains(entete, "waived") {
+	if !strings.Contains(entete, "renoncé") {
 		t.Error("le calibre doit dire que ces points sont renonces, pas gagnes")
 	}
 }
@@ -197,10 +197,10 @@ func TestAucunEcartNEstPasUnePreuveDeSurete(t *testing.T) {
 	}
 
 	sortie := rendre(rep)
-	if !strings.Contains(sortie, "No open issues") {
+	if !strings.Contains(sortie, "Aucun écart ouvert") {
 		t.Fatal("l'absence d'ecart doit etre annoncee")
 	}
-	if !strings.Contains(strings.ToLower(sortie), "not a proof") {
+	if !strings.Contains(strings.ToLower(sortie), "preuve de sûreté") {
 		t.Error("l'absence d'ecart ne doit pas se lire comme une preuve de surete")
 	}
 }
@@ -214,7 +214,7 @@ func TestLeResumeFinalPorteLesQuatreNombres(t *testing.T) {
 	rep.Counts["errors"] = 1
 
 	sortie := rendre(rep)
-	for _, attendu := range []string{"Passed controls", "Open issues", "Accepted", "Check errors"} {
+	for _, attendu := range []string{"Contrôles réussis", "Écarts ouverts", "Acceptés", "Erreurs"} {
 		if !strings.Contains(sortie, attendu) {
 			t.Errorf("le resume final doit porter %q", attendu)
 		}
@@ -239,7 +239,7 @@ func TestLeProfilNonStandardEstAnnonce(t *testing.T) {
 
 	poste := rapportDEssai()
 	poste.Profile = "workstation"
-	if strings.Contains(rendre(poste), "Profile") {
+	if strings.Contains(rendre(poste), "Profil") {
 		t.Error("le profil par defaut n'a pas a etre annonce")
 	}
 }
