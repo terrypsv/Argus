@@ -62,10 +62,10 @@ var winSuspicious = []string{`\temp\`, `\appdata\`, `\users\public\`, `\programd
 func winPrivilege(ctx *engine.Context) []model.Finding {
 	out, _ := runCmd(10*time.Second, "whoami", "/groups")
 	if strings.Contains(out, "S-1-16-12288") || strings.Contains(lower(out), "high mandatory level") {
-		return []model.Finding{info("PRIV-ADMIN", "system", "Running elevated", "Full coverage enabled.")}
+		return []model.Finding{info("PRIV-ADMIN", "system", "Exécution avec privilèges élevés", "Couverture complète des contrôles.")}
 	}
-	return []model.Finding{info("PRIV-USER", "system", "Not running as Administrator",
-		"Some checks (BitLocker, some registry hives) may be limited. Re-run in an elevated PowerShell.")}
+	return []model.Finding{info("PRIV-USER", "system", "Exécution sans privilèges administrateur",
+		"Certains contrôles seront limités, dont BitLocker et une partie du registre. Relancer depuis un PowerShell élevé.")}
 }
 
 // registeredAV returns the third-party antivirus products registered with the
@@ -96,13 +96,13 @@ func winDefender(ctx *engine.Context) []model.Finding {
 	if err != nil || out == "" {
 		if len(thirdParty) > 0 {
 			return []model.Finding{info("AV-THIRDPARTY", "antivirus",
-				"Protection provided by a third-party antivirus",
-				"Microsoft Defender could not be queried, which is normal when another product owns real-time protection.",
+				"Protection assurée par un antivirus tiers",
+				"Microsoft Defender n'a pas pu être interrogé, ce qui est normal lorsqu'un autre produit assure la protection en temps réel.",
 				thirdParty...)}
 		}
 		return []model.Finding{info("AV-UNKNOWN", "antivirus",
-			"Could not query Microsoft Defender",
-			"The command may need elevation.")}
+			"Microsoft Defender n'a pas pu être interrogé",
+			"La commande demande peut-être des privilèges élevés.")}
 	}
 	parts := strings.Split(out, "|")
 	var findings []model.Finding
@@ -111,25 +111,25 @@ func winDefender(ctx *engine.Context) []model.Finding {
 	switch {
 	case rtpOff && len(thirdParty) > 0:
 		findings = append(findings, info("AV-THIRDPARTY", "antivirus",
-			"Defender is passive; a third-party antivirus is active",
-			"Windows disables Defender real-time protection when another antivirus registers with the Security Center. Verify the third-party product is up to date and actually scanning.",
+			"Defender est en veille, un antivirus tiers est actif",
+			"Windows désactive la protection en temps réel de Defender dès qu'un autre antivirus s'enregistre auprès du centre de sécurité. Vérifier que le produit tiers est à jour et analyse réellement.",
 			thirdParty...))
 	case rtpOff:
 		findings = append(findings, fail("AV-RTP", "antivirus",
-			"No active real-time antivirus protection", model.SevHigh,
-			"Defender real-time scanning is disabled and no third-party antivirus is registered with the Security Center.",
-			"Re-enable it (Windows Security > Virus & threat protection)."))
+			"Aucune protection antivirus en temps réel", model.SevHigh,
+			"L'analyse en temps réel de Defender est désactivée et aucun antivirus tiers n'est enregistré auprès du centre de sécurité.",
+			"Réactiver la protection dans Sécurité Windows, Protection contre les virus et menaces."))
 	}
 
 	if len(parts) >= 3 && !rtpOff {
 		if age, ok := atoiSafe(strings.TrimSpace(parts[2])); ok && age > 7 {
 			findings = append(findings, fail("AV-SIG", "antivirus",
-				"Defender signatures are stale", model.SevMedium,
-				fmt.Sprintf("Signature age: %d days", age), "Update definitions."))
+				"Signatures de Defender périmées", model.SevMedium,
+				fmt.Sprintf("Signatures vieilles de %d jours", age), "Mettre à jour les définitions."))
 		}
 	}
 	if len(findings) == 0 {
-		findings = append(findings, pass("AV-OK", "antivirus", "Defender real-time protection is active"))
+		findings = append(findings, pass("AV-OK", "antivirus", "Protection en temps réel de Defender active"))
 	}
 	return findings
 }
@@ -137,7 +137,7 @@ func winDefender(ctx *engine.Context) []model.Finding {
 func winFirewall(ctx *engine.Context) []model.Finding {
 	out, err := runCmd(10*time.Second, "netsh", "advfirewall", "show", "allprofiles", "state")
 	if err != nil {
-		return []model.Finding{info("FW-UNKNOWN", "network", "Could not read firewall state", err.Error())}
+		return []model.Finding{info("FW-UNKNOWN", "network", "État du pare-feu illisible", err.Error())}
 	}
 	var off []string
 	profile := ""
@@ -153,85 +153,85 @@ func winFirewall(ctx *engine.Context) []model.Finding {
 	}
 	if len(off) > 0 {
 		return []model.Finding{fail("FW-OFF", "network",
-			"Windows Firewall is OFF for one or more profiles", model.SevHigh,
-			"An inactive firewall exposes all listening services.",
-			"Turn the firewall on for every profile.", off...)}
+			"Pare-feu Windows désactivé sur un ou plusieurs profils", model.SevHigh,
+			"Un pare-feu inactif expose tous les services en écoute.",
+			"Réactiver le pare-feu sur chaque profil.", off...)}
 	}
-	return []model.Finding{pass("FW-ON", "network", "Windows Firewall is on for all profiles")}
+	return []model.Finding{pass("FW-ON", "network", "Pare-feu Windows actif sur tous les profils")}
 }
 
 func winUAC(ctx *engine.Context) []model.Finding {
 	out, err := runCmd(8*time.Second, "reg", "query",
 		`HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System`, "/v", "EnableLUA")
 	if err != nil {
-		return []model.Finding{info("UAC-UNKNOWN", "hardening", "Could not read UAC state", err.Error())}
+		return []model.Finding{info("UAC-UNKNOWN", "hardening", "État du contrôle de compte d'utilisateur illisible", err.Error())}
 	}
 	if strings.Contains(out, "0x0") {
 		return []model.Finding{fail("UAC-OFF", "hardening",
-			"User Account Control (UAC) is disabled", model.SevHigh,
-			"EnableLUA = 0", "Re-enable UAC; disabled UAC lets malware elevate silently.")}
+			"Contrôle de compte d'utilisateur (UAC) désactivé", model.SevHigh,
+			"EnableLUA = 0", "Réactiver l'UAC. Désactivé, il laisse un programme malveillant s'élever sans un mot.")}
 	}
-	return []model.Finding{pass("UAC-ON", "hardening", "UAC is enabled")}
+	return []model.Finding{pass("UAC-ON", "hardening", "UAC actif")}
 }
 
 func winSMB1(ctx *engine.Context) []model.Finding {
 	out, err := psCmd(`(Get-SmbServerConfiguration).EnableSMB1Protocol`)
 	if err != nil || out == "" {
-		return []model.Finding{info("SMB1-UNKNOWN", "hardening", "Could not query SMBv1 state", "")}
+		return []model.Finding{info("SMB1-UNKNOWN", "hardening", "État de SMBv1 illisible", "")}
 	}
 	if lower(strings.TrimSpace(out)) == "true" {
 		return []model.Finding{fail("SMB1-ON", "hardening",
-			"SMBv1 is enabled", model.SevHigh,
-			"SMBv1 is obsolete and vulnerable (e.g. EternalBlue).",
-			"Disable it: Disable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol.")}
+			"SMBv1 est actif", model.SevHigh,
+			"SMBv1 est obsolète et vulnérable, notamment à EternalBlue.",
+			"Le désactiver avec Disable-WindowsOptionalFeature -Online -FeatureName SMB1Protocol.")}
 	}
-	return []model.Finding{pass("SMB1-OFF", "hardening", "SMBv1 is disabled")}
+	return []model.Finding{pass("SMB1-OFF", "hardening", "SMBv1 désactivé")}
 }
 
 func winRDP(ctx *engine.Context) []model.Finding {
 	out, err := runCmd(8*time.Second, "reg", "query",
 		`HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server`, "/v", "fDenyTSConnections")
 	if err != nil {
-		return []model.Finding{info("RDP-UNKNOWN", "network", "Could not read RDP state", "")}
+		return []model.Finding{info("RDP-UNKNOWN", "network", "État du Bureau à distance illisible", "")}
 	}
 	if !strings.Contains(out, "0x0") {
-		return []model.Finding{pass("RDP-OFF", "network", "RDP is disabled")}
+		return []model.Finding{pass("RDP-OFF", "network", "Bureau à distance désactivé")}
 	}
 	// RDP enabled - check Network Level Authentication.
 	nla, _ := runCmd(8*time.Second, "reg", "query",
 		`HKLM\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp`, "/v", "UserAuthentication")
 	if strings.Contains(nla, "0x0") {
 		return []model.Finding{fail("RDP-NONLA", "network",
-			"RDP is enabled without Network Level Authentication", model.SevHigh,
-			"RDP without NLA is a frequent ransomware entry point.",
-			"Enable NLA, restrict RDP to VPN, and enforce strong passwords/MFA.")}
+			"Bureau à distance actif sans authentification au niveau réseau", model.SevHigh,
+			"Un Bureau à distance sans NLA est une porte d'entrée fréquente des rançongiciels.",
+			"Activer la NLA, restreindre l'accès au VPN, imposer des mots de passe forts et un second facteur.")}
 	}
 	return []model.Finding{fail("RDP-ON", "network",
-		"RDP is enabled", model.SevMedium,
-		"Remote Desktop is reachable.",
-		"Ensure it is firewalled to trusted networks only and NLA + MFA are enforced.")}
+		"Bureau à distance actif", model.SevMedium,
+		"Le Bureau à distance est joignable.",
+		"Le restreindre par pare-feu aux réseaux de confiance, avec NLA et second facteur.")}
 }
 
 func winBitLocker(ctx *engine.Context) []model.Finding {
 	out, err := runCmd(15*time.Second, "manage-bde", "-status", "C:")
 	if err != nil || out == "" {
 		return []model.Finding{info("BL-UNKNOWN", "disk",
-			"Could not read BitLocker status", "Re-run elevated to check disk encryption.")}
+			"État de BitLocker illisible", "Relancer avec des privilèges élevés pour vérifier le chiffrement du disque.")}
 	}
 	low := lower(out)
 	if strings.Contains(low, "protection on") {
-		return []model.Finding{pass("BL-ON", "disk", "BitLocker protection is ON for C:")}
+		return []model.Finding{pass("BL-ON", "disk", "BitLocker actif sur C:")}
 	}
 	return []model.Finding{fail("BL-OFF", "disk",
-		"System drive is not encrypted with BitLocker", model.SevMedium,
-		"An unencrypted disk exposes all data if the device is lost or stolen.",
-		"Enable BitLocker on C:.")}
+		"Disque système non chiffré par BitLocker", model.SevMedium,
+		"Un disque non chiffré livre toutes les données en cas de perte ou de vol de la machine.",
+		"Activer BitLocker sur C:.")}
 }
 
 func winPorts(ctx *engine.Context) []model.Finding {
 	out, err := runCmd(15*time.Second, "netstat", "-ano", "-p", "tcp")
 	if err != nil {
-		return []model.Finding{info("NET-UNKNOWN", "network", "Could not read listening ports", err.Error())}
+		return []model.Finding{info("NET-UNKNOWN", "network", "Ports en écoute illisibles", err.Error())}
 	}
 	risky := map[string]struct {
 		sev   model.Severity
@@ -261,23 +261,23 @@ func winPorts(ctx *engine.Context) []model.Finding {
 		}
 		addr, port := local[:colon], local[colon+1:]
 		allIf := addr == "0.0.0.0" || addr == "[::]"
-		scope := "local"
+		scope := "locale"
 		if allIf {
-			scope = "all interfaces"
+			scope = "toutes interfaces"
 		}
 		inventory = append(inventory, fmt.Sprintf("tcp/%s (%s)", port, scope))
 		if r, ok := risky[port]; ok && allIf && !seen[port] {
 			seen[port] = true
 			findings = append(findings, fail("NET-PORT-TCP-"+port, "network",
-				fmt.Sprintf("%s (port %s) exposed on all interfaces", r.label, port),
-				r.sev, "Reachable from any network.", "Restrict via firewall or disable the service."))
+				fmt.Sprintf("%s (port %s) exposé sur toutes les interfaces", r.label, port),
+				r.sev, "Joignable depuis n'importe quel réseau.", "Restreindre par pare-feu ou désactiver le service."))
 		}
 	}
 	sort.Strings(inventory)
 	inventory = uniqueStrings(inventory)
 	findings = append(findings, info("NET-LISTEN", "network",
-		fmt.Sprintf("%d listening TCP socket(s)", len(inventory)),
-		"Confirm each open port is expected.", capEvidence(inventory)...))
+		fmt.Sprintf("%d socket(s) TCP en écoute", len(inventory)),
+		"Vérifier que chaque port ouvert est attendu.", capEvidence(inventory)...))
 	return findings
 }
 
@@ -390,26 +390,26 @@ func winStartup(ctx *engine.Context) []model.Finding {
 	var out []model.Finding
 	if len(suspicious) > 0 {
 		out = append(out, fail("RUN-SUSP", "persistence",
-			"Unsigned autostart entry(ies) in a user-writable location", model.SevHigh,
-			"These entries run at logon from temp/AppData/ProgramData, or use encoded or living-off-the-land commands, and carry no valid Authenticode signature.",
-			"Verify each one; remove anything you did not install.", capEvidence(suspicious)...))
+			"Entrées de démarrage non signées dans un emplacement modifiable", model.SevHigh,
+			"Ces entrées s'exécutent à l'ouverture de session depuis temp, AppData ou ProgramData, ou emploient des commandes encodées ou des binaires du système détournés, et ne portent aucune signature Authenticode valide.",
+			"Vérifier chacune, retirer ce que vous n'avez pas installé.", capEvidence(suspicious)...))
 	}
 	if len(vouched) > 0 {
 		out = append(out, info("RUN-SIGNED", "persistence",
-			fmt.Sprintf("%d signed autostart entry(ies) in user-writable paths", len(vouched)),
-			"Per-user installs from real publishers. Signature valid, so not treated as persistence - review anyway if you do not recognise one.",
+			fmt.Sprintf("%d entrée(s) de démarrage signée(s) en emplacement modifiable", len(vouched)),
+			"Installations par utilisateur provenant d'éditeurs identifiés. La signature étant valide, elles ne sont pas comptées comme persistance. À examiner tout de même si l'une vous est inconnue.",
 			capEvidence(vouched)...))
 	}
 	out = append(out, info("RUN-INV", "persistence",
-		fmt.Sprintf("%d autostart entry(ies)", len(inventory)),
-		"Review the startup inventory.", capEvidence(inventory)...))
+		fmt.Sprintf("%d entrée(s) de démarrage", len(inventory)),
+		"Passer en revue l'inventaire de démarrage.", capEvidence(inventory)...))
 	return out
 }
 
 func winTasks(ctx *engine.Context) []model.Finding {
 	out, err := runCmd(30*time.Second, "schtasks", "/query", "/fo", "LIST", "/v")
 	if err != nil || out == "" {
-		return []model.Finding{info("TASK-UNKNOWN", "persistence", "Could not enumerate scheduled tasks", "")}
+		return []model.Finding{info("TASK-UNKNOWN", "persistence", "Tâches planifiées non énumérables", "")}
 	}
 	var suspicious []string
 	for _, l := range strings.Split(out, "\n") {
@@ -423,11 +423,11 @@ func winTasks(ctx *engine.Context) []model.Finding {
 	}
 	if len(suspicious) > 0 {
 		return []model.Finding{fail("TASK-SUSP", "persistence",
-			"Suspicious scheduled task action(s)", model.SevHigh,
-			"Scheduled tasks are a common, resilient persistence mechanism.",
-			"Inspect each with `schtasks /query /tn <name> /v`.", capEvidence(suspicious)...)}
+			"Action(s) de tâche planifiée suspecte(s)", model.SevHigh,
+			"Les tâches planifiées sont un moyen de persistance courant et tenace.",
+			"Inspecter chacune avec schtasks /query /tn <nom> /v.", capEvidence(suspicious)...)}
 	}
-	return []model.Finding{pass("TASK-OK", "persistence", "No obviously suspicious scheduled tasks")}
+	return []model.Finding{pass("TASK-OK", "persistence", "Aucune tâche planifiée manifestement suspecte")}
 }
 
 func winAdmins(ctx *engine.Context) []model.Finding {
@@ -452,12 +452,12 @@ func winAdmins(ctx *engine.Context) []model.Finding {
 	}
 	if len(members) == 0 {
 		return []model.Finding{errFinding("ADM-UNKNOWN", "accounts",
-			"Could not list local administrators",
-			"Neither Get-LocalGroupMember nor net localgroup returned members; re-run elevated.")}
+			"Liste des administrateurs locaux indisponible",
+			"Ni Get-LocalGroupMember ni net localgroup n'ont renvoyé de membres. Relancer avec des privilèges élevés.")}
 	}
 	return []model.Finding{info("ADM-LIST", "accounts",
-		fmt.Sprintf("%d local administrator account(s)", len(members)),
-		"Every admin account is a high-value target - keep this list minimal.", members...)}
+		fmt.Sprintf("%d compte(s) administrateur local", len(members)),
+		"Chaque compte administrateur est une cible de valeur. Garder cette liste au strict minimum.", members...)}
 }
 
 // parseNetLocalgroup extracts member names from `net localgroup <name>` output,
