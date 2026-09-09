@@ -437,44 +437,44 @@ func useColor(noColor bool) bool {
 }
 
 func usage() {
-	fmt.Print(`Argus - host security posture scanner
+	fmt.Print(`Argus - bulletin de posture d'un poste
 
 Usage:
-  argus [scan] [flags]        Run a scan (default). Prints two scores.
-  argus baseline              Record trusted SHA-256 hashes of critical files.
-  argus accept <ID> --reason  Accept a reviewed finding as a known exception.
-  argus unaccept <ID>         Revoke a previously accepted finding.
-  argus exceptions            List what is currently being carried.
-  argus diff <old> <new>      Compare two JSON reports.
-  argus serve                 Scan, then open the report in your browser.
-                              --report <file> serves a saved JSON instead.
-  argus version               Print the version.
+  argus [scan] [options]      Analyse la machine (par defaut). Affiche deux notes.
+  argus baseline              Enregistre les empreintes SHA-256 des fichiers critiques.
+  argus accept <ID> --reason  Accepte un ecart examine comme exception connue.
+  argus unaccept <ID>         Annule une acceptation.
+  argus exceptions            Liste ce qui est porte sciemment.
+  argus diff <avant> <apres>  Compare deux rapports JSON.
+  argus serve                 Analyse, puis ouvre le rapport dans le navigateur.
+                              --report <fichier> sert un JSON deja enregistre.
+  argus version               Affiche la version.
 
-Scan flags:
-  --json <path>               Write a JSON report.
-  --md <path>                 Write a Markdown report.
-  --out <dir>                 Write both JSON and Markdown into <dir>.
-  --baseline <path>           Integrity baseline file.
-  --exceptions <path>         Accepted-findings file.
-  --roots <csv>               Override filesystem roots to scan.
-  --quick                     Skip slow filesystem walks.
-  --profile <name>            Machine class: workstation, audit, container.
-  --verify-packages           Check installed files against the distro digests (Linux).
-  --no-color                  Disable coloured output.
-  --quiet                     Hide per-check progress.
-  --brief                     One parseable line instead of the full report.
-  --fail-under <n>            Exit 2 if the overall score < n.
-  --fail-under-integrity <n>  Exit 3 if the integrity score < n.
+Options d'analyse:
+  --json <chemin>             Ecrit un rapport JSON.
+  --md <chemin>               Ecrit un rapport Markdown.
+  --out <dossier>             Ecrit les deux rapports dans <dossier>.
+  --baseline <chemin>         Fichier de reference d'integrite.
+  --exceptions <chemin>       Fichier des ecarts acceptes.
+  --roots <liste>             Remplace les racines a parcourir.
+  --quick                     Saute les parcours de fichiers lents.
+  --profile <nom>             Classe de machine: workstation, audit, container.
+  --verify-packages           Compare aux empreintes de la distribution (Linux).
+  --no-color                  Desactive la couleur.
+  --quiet                     Masque la progression controle par controle.
+  --brief                     Une ligne analysable au lieu du rapport complet.
+  --fail-under <n>            Sort en 2 si la note globale est inferieure a n.
+  --fail-under-integrity <n>  Sort en 3 si la note d'integrite est inferieure a n.
 
-Accept flags:
-  --reason "..."              Why it is accepted (required).
-  --by <name>                 Who accepted it.
-  --days <n>                  Expire the acceptance after n days.
+Options d'acceptation:
+  --reason "..."              Pourquoi l'ecart est accepte (obligatoire).
+  --by <nom>                  Qui l'a accepte.
+  --days <n>                  Expire l'acceptation apres n jours.
 
-Examples:
+Exemples:
   argus
-  argus scan --out ./reports --fail-under-integrity 100
-  argus baseline --add /usr/local/bin/myapp
-  argus accept RUN-SUSP --reason "Figma ships this helper unsigned" --by terry --days 90
+  argus scan --out ./rapports --fail-under-integrity 100
+  argus baseline --add /usr/local/bin/monapp
+  argus accept RUN-SUSP --reason "Figma livre cet assistant non signe" --by terry --days 90
 `)
 }

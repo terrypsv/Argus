@@ -32,18 +32,18 @@ func newPalette(color bool) palette {
 func Console(w io.Writer, rep model.Report, color bool) {
 	p := newPalette(color)
 
-	fmt.Fprintf(w, "\n%s%s  ARGUS  security posture report%s\n", p.bold, p.cyan, p.reset)
-	fmt.Fprintf(w, "%s  %s  -  Editeur : %s  -  %s%s\n",
+	fmt.Fprintf(w, "\n%s%s  ARGUS  bulletin de posture%s\n", p.bold, p.cyan, p.reset)
+	fmt.Fprintf(w, "%s  %s  -  Éditeur : %s  -  %s%s\n",
 		p.gray, rep.Version, rep.Author, rep.Repository, p.reset)
 	fmt.Fprintf(w, "%s\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500%s\n", p.gray, p.reset)
-	fmt.Fprintf(w, "Host      : %s (%s/%s)\n", rep.Host.Hostname, rep.Host.OS, rep.Host.Arch)
-	fmt.Fprintf(w, "Platform  : %s\n", rep.Host.Platform)
-	fmt.Fprintf(w, "Kernel    : %s\n", rep.Host.Kernel)
-	fmt.Fprintf(w, "Scanned   : %s\n", rep.FinishedAt.Format("2006-01-02 15:04:05"))
+	fmt.Fprintf(w, "Machine   : %s (%s/%s)\n", rep.Host.Hostname, rep.Host.OS, rep.Host.Arch)
+	fmt.Fprintf(w, "Système   : %s\n", rep.Host.Platform)
+	fmt.Fprintf(w, "Noyau     : %s\n", rep.Host.Kernel)
+	fmt.Fprintf(w, "Analysé   : %s\n", rep.FinishedAt.Format("2006-01-02 15:04:05"))
 	if rep.Profile != "" && rep.Profile != "workstation" {
-		fmt.Fprintf(w, "Profile   : %s%s%s\n", p.bold, rep.Profile, p.reset)
+		fmt.Fprintf(w, "Profil    : %s%s%s\n", p.bold, rep.Profile, p.reset)
 	}
-	fmt.Fprintf(w, "Duration  : %d ms\n\n", rep.DurationMS)
+	fmt.Fprintf(w, "Durée     : %d ms\n\n", rep.DurationMS)
 
 	axisColor := func(v int) string {
 		switch {
@@ -57,14 +57,14 @@ func Console(w io.Writer, rep model.Report, color bool) {
 
 	fmt.Fprintf(w, "  %s%s%s\n\n", axisColor(rep.Score)+p.bold, rep.Verdict, p.reset)
 
-	gauge(w, p, "HARDENING", rep.Hardening, rep.Findings, model.AxisHardening, axisColor)
-	gauge(w, p, "INTEGRITY", rep.Integrity, rep.Findings, model.AxisIntegrity, axisColor)
+	gauge(w, p, "DURCISSEMENT", rep.Hardening, rep.Findings, model.AxisHardening, axisColor)
+	gauge(w, p, "INTÉGRITÉ", rep.Integrity, rep.Findings, model.AxisIntegrity, axisColor)
 
 	fmt.Fprintf(w, "  %sCRITICAL %d  HIGH %d  MEDIUM %d  LOW %d%s",
 		p.gray, rep.Counts["CRITICAL"], rep.Counts["HIGH"],
 		rep.Counts["MEDIUM"], rep.Counts["LOW"], p.reset)
 	if open, local, ok := exposureSplit(rep); ok {
-		fmt.Fprintf(w, "%s   |   %d socket(s) reachable from the network, %d loopback-only%s",
+		fmt.Fprintf(w, "%s   |   %d socket(s) joignable(s) depuis le réseau, %d en boucle locale%s",
 			p.gray, open, local, p.reset)
 	}
 	fmt.Fprintln(w)
@@ -88,23 +88,23 @@ func Console(w io.Writer, rep model.Report, color bool) {
 		printFinding(w, p, f)
 	}
 	if !printedFail {
-		fmt.Fprintf(w, "%s  No open issues. Stay vigilant - a clean scan is not a proof of safety.%s\n", p.green, p.reset)
+		fmt.Fprintf(w, "%s  Aucun écart ouvert. Une analyse propre n'est pas une preuve de sûreté.%s\n", p.green, p.reset)
 	}
 
 	// Accepted findings are still real problems. They are listed apart so a
 	// waiver can never be mistaken for a fix.
 	if rep.Counts["accepted"] > 0 {
-		fmt.Fprintf(w, "\n%s[ACCEPTED - carried knowingly, not fixed]%s\n", p.bold+p.yellow, p.reset)
+		fmt.Fprintf(w, "\n%s[ACCEPTÉS - assumés en connaissance de cause, non corrigés]%s\n", p.bold+p.yellow, p.reset)
 		for _, f := range rep.Findings {
 			if f.Accepted == "" {
 				continue
 			}
 			fmt.Fprintf(w, "  %s%-5s %s  (%s)%s\n", p.yellow, f.Severity.Abbrev(), f.Title, f.ID, p.reset)
-			fmt.Fprintf(w, "        %sreason: %s%s\n", p.gray, f.Accepted, p.reset)
+			fmt.Fprintf(w, "        %smotif : %s%s\n", p.gray, f.Accepted, p.reset)
 		}
 	}
 
-	fmt.Fprintf(w, "\n%sPassed controls: %d   |   Open issues: %d   |   Accepted: %d   |   Check errors: %d%s\n",
+	fmt.Fprintf(w, "\n%sContrôles réussis : %d   |   Écarts ouverts : %d   |   Acceptés : %d   |   Erreurs : %d%s\n",
 		p.gray, rep.Counts["passed"], rep.Counts["failed"],
 		rep.Counts["accepted"], rep.Counts["errors"], p.reset)
 }
@@ -130,21 +130,21 @@ func printFinding(w io.Writer, p palette, f model.Finding) {
 		fmt.Fprintf(w, "        %s\u00b7 %s%s\n", p.gray, e, p.reset)
 	}
 	if hidden > 0 {
-		fmt.Fprintf(w, "        %s\u00b7 and %d more, see the JSON or Markdown report%s\n",
+		fmt.Fprintf(w, "        %s\u00b7 et %d de plus, voir le rapport JSON ou Markdown%s\n",
 			p.gray, hidden, p.reset)
 	}
 	if f.Remediation != "" {
 		fmt.Fprintf(w, "        %s\u2192 %s%s\n", p.cyan, f.Remediation, p.reset)
 	}
 	if f.Superseded != "" {
-		fmt.Fprintf(w, "        %scounted once, through %s%s\n", p.gray, f.Superseded, p.reset)
+		fmt.Fprintf(w, "        %scompté une seule fois, via %s%s\n", p.gray, f.Superseded, p.reset)
 	}
 	if len(f.References) > 0 {
 		var refs []string
 		for _, r := range f.References {
 			refs = append(refs, r.String())
 		}
-		fmt.Fprintf(w, "        %sref: %s%s\n", p.gray, strings.Join(refs, ", "), p.reset)
+		fmt.Fprintf(w, "        %sréf. : %s%s\n", p.gray, strings.Join(refs, ", "), p.reset)
 	}
 	if f.Err != "" {
 		fmt.Fprintf(w, "        %s! %s%s\n", p.red, f.Err, p.reset)
@@ -201,7 +201,7 @@ func gauge(w io.Writer, p palette, label string, a model.AxisScore,
 	}
 	line := string(cut) + strings.Repeat(" ", gaugeWidth-len(cut))
 
-	fmt.Fprintf(w, "  %s%-11s %s%3d/100  %s%s\n",
+	fmt.Fprintf(w, "  %s%-13s %s%3d/100  %s%s\n",
 		p.bold, label, colorOf(a.Score), a.Score, a.Grade, p.reset)
 	fmt.Fprintf(w, "  %s[%s]%s\n", colorOf(a.Score), line, p.reset)
 
@@ -213,7 +213,7 @@ func gauge(w io.Writer, p palette, label string, a model.AxisScore,
 		items = append(items, fmt.Sprintf("%s (-%g waived)", f.ID, f.Severity.Weight()))
 	}
 	if len(items) == 0 {
-		fmt.Fprintf(w, "   %sno deductions%s\n\n", p.gray, p.reset)
+		fmt.Fprintf(w, "   %saucune pénalité%s\n\n", p.gray, p.reset)
 		return
 	}
 	for _, l := range wrapItems(items, 70) {
@@ -255,7 +255,7 @@ func exposureSplit(rep model.Report) (open, local int, ok bool) {
 			if !strings.Contains(e, "/") {
 				continue
 			}
-			if strings.Contains(e, "all interfaces") {
+			if strings.Contains(e, "toutes interfaces") || strings.Contains(e, "all interfaces") {
 				open++
 			} else {
 				local++
