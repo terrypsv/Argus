@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Habillage de l'assistant d'installation macOS d'Argus.
+
+  La structure reste celle d'Apple, avec ses etapes et ses boutons: c'est ce que
+  tout le monde connait sur ce systeme, et un installeur exotique y serait plus
+  suspect qu'accueillant. On y pose la marque Steelveil, le texte d'accueil et
+  la suite a donner apres l'installation.
+
+  background-darkAqua est indispensable: sans lui, l'image ne s'affiche pas du
+  tout quand le systeme est en mode sombre.
+
+  customize="never": il n'y a rien a choisir, un seul composant est installe.
+-->
+<installer-gui-script minSpecVersion="2">
+    <title>Argus</title>
+    <organization>com.steelveil</organization>
+
+    <background          file="background.png"      alignment="bottomleft" scaling="none"/>
+    <background-darkAqua file="background-dark.png" alignment="bottomleft" scaling="none"/>
+    <welcome    file="welcome.html"    mime-type="text/html"/>
+    <license    file="license.txt"     mime-type="text/plain"/>
+    <conclusion file="conclusion.html" mime-type="text/html"/>
+
+    <options customize="never" require-scripts="false" hostArchitectures="x86_64,arm64"/>
+    <domains enable_localSystem="true" enable_anywhere="false" enable_currentUserHome="false"/>
+
+    <choices-outline>
+        <line choice="default">
+            <line choice="com.steelveil.argus"/>
+        </line>
+    </choices-outline>
+    <choice id="default"/>
+    <choice id="com.steelveil.argus" visible="false">
+        <pkg-ref id="com.steelveil.argus"/>
+    </choice>
+    <pkg-ref id="com.steelveil.argus" version="__VERSION__">argus-component.pkg</pkg-ref>
+</installer-gui-script>
