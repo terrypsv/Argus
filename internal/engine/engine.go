@@ -150,7 +150,7 @@ func (r *Runner) Run() model.Report {
 	suppressed, expired := applyExceptions(rep.Findings, ef, time.Now())
 	rep.Suppressed = suppressed
 	for _, id := range expired {
-		r.ctx.logf("exception for %s has expired and no longer applies", id)
+		r.ctx.logf("l'exception pour %s a expiré et ne s'applique plus", id)
 	}
 
 	rep.Hardening = axisScore(rep.Findings, model.AxisHardening)
@@ -183,7 +183,7 @@ func (r *Runner) runOne(ch Check) (out []model.Finding) {
 			out = []model.Finding{{
 				ID:       ch.Name + "-PANIC",
 				Category: ch.Category,
-				Title:    "Check crashed and was skipped",
+				Title:    "Contrôle interrompu par une erreur interne",
 				Severity: model.SevInfo,
 				Passed:   false,
 				Err:      fmt.Sprintf("panic: %v", rec),
@@ -314,18 +314,18 @@ func verdict(hard, integ model.AxisScore) string {
 	var base string
 	switch {
 	case integ.Score < 60:
-		base = "Compromise indicators found - investigate these before anything else"
+		base = "Indices de compromission - à investiguer avant toute autre chose"
 	case integ.Issues > 0:
-		base = "Possible tampering indicators - review the integrity findings"
+		base = "Indices possibles d'altération - examiner les constats d'intégrité"
 	case hard.Score >= 90:
-		base = "No compromise indicators; hardening is solid"
+		base = "Aucun indice de compromission, le durcissement est solide"
 	case hard.Score >= 60:
-		base = "No compromise indicators; hardening needs work"
+		base = "Aucun indice de compromission, le durcissement reste à travailler"
 	default:
-		base = "No compromise indicators, but this host is barely hardened"
+		base = "Aucun indice de compromission, mais cette machine n'est presque pas durcie"
 	}
 	if n := hard.Accepted + integ.Accepted; n > 0 {
-		base += fmt.Sprintf(" - %d accepted finding(s) excluded from the score", n)
+		base += fmt.Sprintf(" - %d constat(s) accepté(s), exclus de la note", n)
 	}
 	return base
 }

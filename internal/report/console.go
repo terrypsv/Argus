@@ -82,7 +82,7 @@ func Console(w io.Writer, rep model.Report, color bool) {
 		}
 		printedFail = true
 		if f.Category != lastCat {
-			fmt.Fprintf(w, "%s[%s]%s\n", p.bold, strings.ToUpper(f.Category), p.reset)
+			fmt.Fprintf(w, "%s[%s]%s\n", p.bold, categorieFrancaise(f.Category), p.reset)
 			lastCat = f.Category
 		}
 		printFinding(w, p, f)
@@ -149,6 +149,37 @@ func printFinding(w io.Writer, p palette, f model.Finding) {
 	if f.Err != "" {
 		fmt.Fprintf(w, "        %s! %s%s\n", p.red, f.Err, p.reset)
 	}
+}
+
+// categorieFrancaise traduit l'intitule d'une categorie pour l'affichage.
+//
+// La traduction s'arrete a l'ecran: le champ Category sert de clef dans le
+// JSON et le Markdown, et argus diff compare deux rapports sur ces clefs.
+// Traduire la donnee rendrait incomparable un rapport pris avant avec un
+// rapport pris apres, ce qui est exactement ce que diff sert a eviter.
+//
+// Une categorie inconnue est rendue telle quelle, en majuscules: un ajout
+// futur reste lisible sans passer par ici.
+func categorieFrancaise(cat string) string {
+	noms := map[string]string{
+		"accounts":     "COMPTES",
+		"antivirus":    "ANTIVIRUS",
+		"browser":      "NAVIGATEUR",
+		"certificates": "CERTIFICATS",
+		"disk":         "DISQUE",
+		"hardening":    "DURCISSEMENT",
+		"integrity":    "INTÉGRITÉ",
+		"network":      "RÉSEAU",
+		"packages":     "PAQUETS",
+		"persistence":  "PERSISTANCE",
+		"ssh":          "SSH",
+		"system":       "SYSTÈME",
+		"updates":      "MISES À JOUR",
+	}
+	if n, ok := noms[strings.ToLower(cat)]; ok {
+		return n
+	}
+	return strings.ToUpper(cat)
 }
 
 // gaugeWidth is the printable width of the score bar.

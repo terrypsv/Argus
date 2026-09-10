@@ -73,7 +73,7 @@ func TestVerdictPrioritisesIntegrity(t *testing.T) {
 		model.AxisScore{Score: 100},
 		model.AxisScore{Score: 50, Issues: 1},
 	)
-	if !strings.Contains(strings.ToLower(v), "compromise") {
+	if !strings.Contains(strings.ToLower(v), "compromission") {
 		t.Errorf("verdict = %q, want it to lead with the compromise", v)
 	}
 }
@@ -83,7 +83,7 @@ func TestVerdictMentionsAcceptedFindings(t *testing.T) {
 		model.AxisScore{Score: 100, Accepted: 2},
 		model.AxisScore{Score: 100},
 	)
-	if !strings.Contains(v, "accepted") {
+	if !strings.Contains(v, "accepté") {
 		t.Errorf("verdict = %q, want the waived findings mentioned", v)
 	}
 }

@@ -33,7 +33,7 @@ var readVolumes = func() []volume {
 func diskUsageCheck(ctx *engine.Context) []model.Finding {
 	vols := readVolumes()
 	if len(vols) == 0 {
-		return []model.Finding{info("DISK-NONE", "disk", "No disk usage data available", "")}
+		return []model.Finding{info("DISK-NONE", "disk", "Aucune donnée d'occupation disque", "")}
 	}
 
 	var out []model.Finding
@@ -43,26 +43,26 @@ func diskUsageCheck(ctx *engine.Context) []model.Finding {
 			// Kept in the inventory for visibility, but never alerted on: a
 			// read-only volume at 100% is normal by construction, and macOS
 			// seals "/" that way on every install.
-			inventory = append(inventory, fmt.Sprintf("%s - %d%% used (read-only)", v.name, v.pctUsed))
+			inventory = append(inventory, fmt.Sprintf("%s - %d%% occupé (lecture seule)", v.name, v.pctUsed))
 			continue
 		}
-		inventory = append(inventory, fmt.Sprintf("%s - %d%% used", v.name, v.pctUsed))
+		inventory = append(inventory, fmt.Sprintf("%s - %d%% occupé", v.name, v.pctUsed))
 		switch {
 		case v.pctUsed >= 98:
 			out = append(out, fail("DISK-FULL-"+sanitize(v.name), "disk",
-				fmt.Sprintf("Filesystem %s is critically full (%d%%)", v.name, v.pctUsed),
+				fmt.Sprintf("Volume %s saturé (%d%%)", v.name, v.pctUsed),
 				model.SevMedium,
-				"A full disk can stop security logging and updates, and is exploited to blind defenders.",
-				"Free space or extend the volume."))
+				"Un disque plein interrompt la journalisation et les mises à jour, ce dont un attaquant se sert pour aveugler la défense.",
+				"Libérer de l'espace ou étendre le volume."))
 		case v.pctUsed >= 90:
 			out = append(out, fail("DISK-LOW-"+sanitize(v.name), "disk",
-				fmt.Sprintf("Filesystem %s is nearly full (%d%%)", v.name, v.pctUsed),
-				model.SevLow, "", "Free space to keep logging and updates working."))
+				fmt.Sprintf("Volume %s presque plein (%d%%)", v.name, v.pctUsed),
+				model.SevLow, "", "Libérer de l'espace pour que la journalisation et les mises à jour continuent."))
 		}
 	}
 	sort.Strings(inventory)
 	out = append(out, info("DISK-INV", "disk",
-		fmt.Sprintf("%d filesystem(s) inspected", len(vols)), "", inventory...))
+		fmt.Sprintf("%d volume(s) inspecté(s)", len(vols)), "", inventory...))
 	return out
 }
 

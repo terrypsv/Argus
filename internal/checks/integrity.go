@@ -69,13 +69,13 @@ func integrityCheck(ctx *engine.Context) []model.Finding {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return []model.Finding{info("INTEG-NOBASE", cat,
-			"No integrity baseline found",
-			fmt.Sprintf("Run `argus baseline` first to record trusted hashes of critical files (looked for %s).", path))}
+			"Aucune référence d'intégrité enregistrée",
+			fmt.Sprintf("Lancer d'abord argus baseline pour enregistrer les empreintes de confiance des fichiers critiques (cherché dans %s).", path))}
 	}
 	var b baseline
 	if err := json.Unmarshal(data, &b); err != nil {
 		return []model.Finding{errFinding("INTEG-BADBASE", cat,
-			"Integrity baseline is corrupt", err.Error())}
+			"Référence d'intégrité illisible", err.Error())}
 	}
 
 	var findings []model.Finding
@@ -103,23 +103,23 @@ func integrityCheck(ctx *engine.Context) []model.Finding {
 
 	if len(changed) > 0 {
 		findings = append(findings, fail("INTEG-CHANGED", cat,
-			fmt.Sprintf("%d critical file(s) changed since baseline", len(changed)),
+			fmt.Sprintf("%d fichier(s) critique(s) modifié(s) depuis la référence", len(changed)),
 			model.SevHigh,
-			"A monitored system binary or config differs from the trusted baseline. This is expected after an update, but also a classic sign of tampering or a trojaned binary.",
-			"Confirm the change matches a legitimate package update (compare with the distro package hashes); if not, treat the host as compromised.",
+			"Un binaire ou une configuration surveillée diffère de la référence de confiance. C'est attendu après une mise à jour, mais c'est aussi le signe classique d'une altération ou d'un binaire piégé.",
+			"Confirmer que le changement correspond à une mise à jour légitime, en comparant aux empreintes publiées par l'éditeur. Sinon, traiter la machine comme compromise.",
 			changed...))
 	}
 	if len(missing) > 0 {
 		findings = append(findings, fail("INTEG-MISSING", cat,
-			fmt.Sprintf("%d baselined file(s) missing", len(missing)),
+			fmt.Sprintf("%d fichier(s) de la référence introuvable(s)", len(missing)),
 			model.SevMedium,
-			"Files present when the baseline was taken are now gone.",
-			"Verify whether the removal was intentional.",
+			"Des fichiers présents lors de la prise de référence ont disparu.",
+			"Vérifier si la suppression était intentionnelle.",
 			missing...))
 	}
 	if len(findings) == 0 {
 		findings = append(findings, pass("INTEG-OK", cat,
-			fmt.Sprintf("All %d baselined files match", len(b.Files))))
+			fmt.Sprintf("Les %d fichiers de la référence sont intacts", len(b.Files))))
 	}
 	return findings
 }
