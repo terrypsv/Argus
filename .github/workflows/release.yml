@@ -1,3 +1,14 @@
+# Publication d'une version d'Argus.
+#
+# Trois taches: les binaires, le paquet Debian, le paquet macOS. Les deux
+# dernieres dependent de la premiere, qui cree la release a laquelle elles
+# ajoutent leurs fichiers.
+#
+# Sur le cout: la tache macOS est facturee dix fois sa duree reelle, arrondie a
+# la minute superieure. C'est le prix de productbuild, qui n'existe que sur ce
+# systeme. Une publication coute donc une quinzaine de minutes de quota, ce qui
+# est acceptable pour une version mais ne le serait pas a chaque demande de
+# fusion, d'ou la separation avec le workflow de verification.
 name: Release
 
 on:
@@ -9,28 +20,29 @@ permissions:
 
 jobs:
   release:
-    name: Build and publish
+    name: Binaires et publication
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-
-      - name: Set up Go
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
-      - name: Test before publishing
+      - name: tests avant publication
         run: go test ./... -count=1
 
-      - name: Build every target
+      - name: compilation de toutes les cibles
         run: |
           set -euo pipefail
           mkdir -p dist
           build() {
+            # Le chemin de la variable doit correspondre au chemin de module
+            # reel. Go n'echoue pas sur un -X dont la cible n'existe pas, il
+            # l'ignore: une erreur ici produit des binaires qui se declarent
+            # "dev" sans que rien ne proteste.
             CGO_ENABLED=0 GOOS="$1" GOARCH="$2" go build \
               -trimpath \
-              -ldflags "-s -w -X argus/internal/engine.Version=${GITHUB_REF_NAME}" \
+              -ldflags "-s -w -X github.com/terrypsv/Argus/internal/engine.Version=${GITHUB_REF_NAME}" \
               -o "dist/$3" .
           }
           build linux   amd64 argus-linux-amd64
@@ -39,13 +51,126 @@ jobs:
           build darwin  arm64 argus-macos-arm64
           build windows amd64 argus-windows-amd64.exe
 
-      - name: Checksums
+      # Un binaire qui ne sait pas dire sa version rend un rapport
+      # irreproductible: on verifie que le tamponnage a pris avant de publier.
+      - name: verifier la version tamponnee
+        run: |
+          chmod +x dist/argus-linux-amd64
+          sortie="$(./dist/argus-linux-amd64 version)"
+          echo "$sortie"
+          if ! echo "$sortie" | grep -q "${GITHUB_REF_NAME}"; then
+            echo "le binaire ne porte pas ${GITHUB_REF_NAME}: le chemin du -X est faux" >&2
+            exit 1
+          fi
+
+      - name: sommes de controle
         run: cd dist && sha256sum * > SHA256SUMS
 
-      - name: Publish
+      # Les notes viennent du journal tenu dans le depot. Les titres de commits
+      # disent ce qui a ete pousse, pas ce qui change pour l'utilisateur.
+      - name: notes de version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          chmod +x installer/extract-notes.sh
+          installer/extract-notes.sh "$version" CHANGELOG.md > notes.md || true
+          if [ ! -s notes.md ]; then
+            echo "::warning::aucune section [$version] dans CHANGELOG.md, les notes seront generees depuis les commits"
+          else
+            echo "--- notes de la version $version ---"
+            cat notes.md
+          fi
+
+      - name: publication
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "${GITHUB_REF_NAME}" dist/* \
-            --title "Argus ${GITHUB_REF_NAME}" \
-            --generate-notes
+          if [ -s notes.md ]; then
+            gh release create "${GITHUB_REF_NAME}" dist/* \
+              --title "Argus ${GITHUB_REF_NAME}" \
+              --notes-file notes.md
+          else
+            gh release create "${GITHUB_REF_NAME}" dist/* \
+              --title "Argus ${GITHUB_REF_NAME}" \
+              --generate-notes
+          fi
+
+  # Paquets Debian. Sur Linux, le gestionnaire de paquets est l'experience
+  # d'installation: /usr/bin est deja dans le PATH, rien a configurer.
+  paquets-linux:
+    name: Paquets Debian
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: construire les paquets
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          chmod +x installer/linux/build-deb.sh
+          mkdir -p dist
+          for arch in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build \
+              -trimpath \
+              -ldflags "-s -w -X github.com/terrypsv/Argus/internal/engine.Version=${GITHUB_REF_NAME}" \
+              -o "dist/argus_linux_${arch}" .
+            installer/linux/build-deb.sh "$version" "$arch" "dist/argus_linux_${arch}"
+          done
+          ls -la *.deb
+
+      # Un paquet mal forme s'installe quand meme et se voit a l'usage: on
+      # inspecte son contenu pendant qu'il est encore temps.
+      - name: verifier le contenu
+        run: |
+          for f in *.deb; do
+            echo "=== $f ==="
+            dpkg-deb -I "$f"
+            dpkg-deb -c "$f"
+          done
+
+      - name: empreintes et publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sha256sum *.deb > SHA256SUMS-linux.txt
+          cat SHA256SUMS-linux.txt
+          gh release upload "${GITHUB_REF_NAME}" *.deb SHA256SUMS-linux.txt
+
+  # Paquets macOS. pkgbuild et productbuild n'existent que sur macOS, d'ou le
+  # runner dedie. Les paquets ne sont ni signes ni notaries: Gatekeeper les
+  # refusera au double-clic, ce qui est le regime normal pour un editeur inconnu.
+  paquets-macos:
+    name: Paquets macOS
+    needs: release
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: construire les paquets
+        run: |
+          set -euo pipefail
+          version="${GITHUB_REF_NAME#v}"
+          chmod +x installer/macos/build-pkg.sh installer/macos/uninstall.sh
+          mkdir -p dist
+          for arch in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=darwin GOARCH="$arch" go build \
+              -trimpath \
+              -ldflags "-s -w -X github.com/terrypsv/Argus/internal/engine.Version=${GITHUB_REF_NAME}" \
+              -o "dist/argus_darwin_${arch}" .
+            installer/macos/build-pkg.sh "$version" "$arch" "dist/argus_darwin_${arch}"
+          done
+          ls -la *.pkg
+
+      - name: empreintes et publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shasum -a 256 *.pkg > SHA256SUMS-macos.txt
+          cat SHA256SUMS-macos.txt
+          gh release upload "${GITHUB_REF_NAME}" *.pkg SHA256SUMS-macos.txt
