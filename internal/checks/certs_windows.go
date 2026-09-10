@@ -48,8 +48,8 @@ func certStoreCheck(ctx *engine.Context) []model.Finding {
 			`"$($_.Thumbprint)|$($_.NotAfter.ToString('yyyy-MM-dd'))|$l|$($_.Subject)" }`)
 	if err != nil && strings.TrimSpace(out) == "" {
 		return []model.Finding{errFinding("CERT-ROOT-INV", "certificates",
-			"Could not read the trusted root store",
-			"PowerShell returned nothing for the machine certificate stores, so nothing is claimed about the machine's trust anchors.")}
+			"Magasin de racines de confiance illisible",
+			"PowerShell n'a rien renvoyé pour les magasins de certificats de la machine, rien n'est donc affirmé sur ses ancres de confiance.")}
 	}
 
 	var all []certInfo
@@ -58,7 +58,7 @@ func certStoreCheck(ctx *engine.Context) []model.Finding {
 			all = append(all, c)
 		}
 	}
-	return rootStoreFindings(all, "machine Trusted Root store")
+	return rootStoreFindings(all, "magasin des racines de confiance de la machine")
 }
 
 // parseWinCertLine reads "THUMBPRINT|yyyy-mm-dd|localFlag|Subject". The subject

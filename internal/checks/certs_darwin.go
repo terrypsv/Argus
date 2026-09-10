@@ -20,8 +20,8 @@ const (
 func certStoreCheck(ctx *engine.Context) []model.Finding {
 	if !cmdAvailable("security") {
 		return []model.Finding{errFinding("CERT-ROOT-INV", "certificates",
-			"Could not read the trusted root store",
-			"The security command is unavailable, so the keychains were not read.")}
+			"Magasin de racines de confiance illisible",
+			"La commande security est indisponible, les trousseaux n'ont donc pas été lus.")}
 	}
 
 	var all []certInfo
@@ -39,7 +39,7 @@ func certStoreCheck(ctx *engine.Context) []model.Finding {
 		all = append(all, parsePEMCerts(out, k.local)...)
 	}
 
-	findings := rootStoreFindings(all, "Apple anchors plus the system keychain")
+	findings := rootStoreFindings(all, "ancres Apple et trousseau système")
 
 	// An administrator trust override changes whether a certificate is trusted
 	// without changing which certificates are present, so it is invisible to
@@ -53,8 +53,8 @@ func certStoreCheck(ctx *engine.Context) []model.Finding {
 				}
 			}
 			findings = append(findings, info("CERT-TRUSTOVERRIDE", "certificates",
-				"Administrator trust overrides are configured",
-				"Someone changed the trust decision for one or more certificates on this machine. That can grant trust the vendor did not, or revoke trust the vendor did.",
+				"Des remplacements de confiance administrateur sont configurés",
+				"Quelqu'un a modifié la décision de confiance pour un ou plusieurs certificats de cette machine. Cela peut accorder une confiance que l'éditeur n'accordait pas, ou retirer celle qu'il accordait.",
 				capEvidence(lines)...))
 		}
 	}

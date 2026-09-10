@@ -54,5 +54,5 @@ func certStoreCheck(ctx *engine.Context) []model.Finding {
 		}
 	}
 
-	return rootStoreFindings(all, "distribution bundle plus local anchors")
+	return rootStoreFindings(all, "paquet de la distribution et ancres locales")
 }
