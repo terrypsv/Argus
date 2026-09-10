@@ -1,0 +1,135 @@
+# Verification continue d'Argus.
+#
+# Ce fichier remplace ci.yml et tests.yml, qui lancaient tous deux vet, les
+# tests et la compilation sur les trois systemes: le meme travail etait donc
+# facture deux fois.
+#
+# La regle qui gouverne le reste: sur une demande de fusion, Linux seul; sur
+# main et sur les etiquettes de version, les trois systemes.
+#
+# Pourquoi. GitHub ne compte pas les minutes a l'identique selon le systeme.
+# Linux compte une fois, Windows deux fois, macOS dix fois, et chaque tache est
+# arrondie a la minute superieure. Une tache macOS de vingt-sept secondes est
+# donc facturee dix minutes. Sur un quota gratuit de deux mille minutes, la
+# matrice complete a chaque demande de fusion epuise le mois en une trentaine
+# d'allers-retours.
+#
+# Ce que cela coute reellement: une erreur propre a macOS ou a Windows se
+# decouvre a la fusion plutot qu'avant. C'est un vrai recul, assume: le code de
+# cet outil est majoritairement commun, les parties specifiques sont derriere
+# des contraintes de compilation, et la compilation croisee ci-dessous les
+# verifie sans quitter Linux. Ce qu'une compilation croisee ne prouve pas,
+# c'est le comportement a l'execution, d'ou la matrice complete des que le code
+# atteint main.
+name: verification
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Sur chaque demande de fusion. Linux seul, plus une compilation croisee vers
+  # les deux autres systemes: elle ne lance rien, mais elle attrape une erreur
+  # de syntaxe ou un appel manquant dans les fichiers sous contrainte, qui
+  # passeraient autrement inapercus jusqu'a la fusion.
+  # --------------------------------------------------------------------------
+  rapide:
+    name: Linux et compilation croisee
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # La version vient du module, pas d'une constante recopiee ici. Une
+      # verification qui compile avec un Go different de celui declare verifie
+      # autre chose que ce qui sera publie.
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: format
+        run: |
+          non_formates=$(gofmt -l .)
+          if [ -n "$non_formates" ]; then
+            echo "fichiers non formates:"
+            echo "$non_formates"
+            exit 1
+          fi
+
+      - name: vet
+        run: go vet ./...
+
+      - name: tests
+        run: go test ./... -count=1
+
+      - name: tests avec detecteur de course
+        run: go test ./... -count=1 -race
+
+      - name: compilation
+        run: go build ./...
+
+      - name: essai a blanc
+        run: go run . scan --quiet --no-color
+
+      # Les controles Windows et macOS vivent derriere des contraintes de
+      # compilation: rien de ce qui precede ne les a touches. Sans cette etape,
+      # une faute de frappe dans darwin.go traverse toute une demande de fusion
+      # verte.
+      - name: compilation croisee
+        run: |
+          for cible in windows/amd64 darwin/amd64 darwin/arm64; do
+            echo "=== $cible ==="
+            GOOS="${cible%/*}" GOARCH="${cible#*/}" go build ./...
+            GOOS="${cible%/*}" GOARCH="${cible#*/}" go vet ./...
+          done
+
+  # --------------------------------------------------------------------------
+  # Sur main et sur les etiquettes seulement. C'est ici que le comportement a
+  # l'execution est verifie, ce qu'aucune compilation croisee ne fait.
+  # --------------------------------------------------------------------------
+  matrice:
+    name: ${{ matrix.os }}
+    if: github.event_name == 'push'
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # Sans cela, un echec sur un systeme annule les deux autres, et on perd
+      # l'information qui compte: est-ce partout ou seulement la.
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: vet
+        run: go vet ./...
+
+      - name: tests
+        run: go test ./... -count=1
+
+      # Le detecteur de course demande cgo, absent des runners Windows par
+      # defaut. Une course n'est pas propre a une plateforme, macOS suffit.
+      - name: tests avec detecteur de course
+        if: matrix.os != 'windows-latest'
+        run: go test ./... -count=1 -race
+
+      - name: compilation
+        run: go build ./...
+
+      - name: essai a blanc
+        run: go run . scan --quiet --no-color
