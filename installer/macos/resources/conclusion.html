@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<style>
+  /* Mêmes principes que l'écran d'accueil : aucune couleur de texte imposée,
+     et des fonds translucides qui se posent sur clair comme sur sombre. */
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, "Helvetica Neue", sans-serif;
+         font-size: 13px; margin: 0; line-height: 1.65; }
+  p { margin: 0 0 12px 0; }
+  pre { font-family: "SF Mono", Menlo, monospace; font-size: 12px;
+        background: rgba(128, 128, 128, 0.16);
+        border: 1px solid rgba(128, 128, 128, 0.28);
+        border-radius: 5px; padding: 10px 12px; margin: 0 0 14px 0;
+        line-height: 1.8; }
+  .note { opacity: 0.72; font-size: 12px; }
+</style>
+</head>
+<body>
+<p><strong>Argus est installé.</strong> Ouvrez le Terminal, puis&nbsp;:</p>
+
+<pre>argus baseline   enregistrer la référence d'intégrité
+argus            analyser la machine</pre>
+
+<p class="note">Prenez la référence pendant que vous jugez la machine saine.
+C'est à elle que chaque analyse suivante comparera vos fichiers critiques, et
+elle ne vaut que ce que vaut ce jugement.</p>
+
+<p class="note">Pour retirer le programme de cette machine&nbsp;:</p>
+<pre>sudo /usr/local/share/doc/argus/uninstall.sh</pre>
+<p class="note">Vos rapports, votre référence et vos exceptions ne sont jamais
+effacés par la désinstallation.</p>
+</body>
+</html>

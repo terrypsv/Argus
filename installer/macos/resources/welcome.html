@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<style>
+  /* Aucune couleur de texte n'est imposée : l'assistant d'Apple suit le mode
+     clair ou sombre du système, et un texte sombre fixé devient invisible sur
+     fond sombre. */
+  :root { color-scheme: light dark; }
+  body { font-family: -apple-system, "Helvetica Neue", sans-serif;
+         font-size: 13px; margin: 0; line-height: 1.65; }
+  p { margin: 0 0 14px 0; }
+  code { font-family: "SF Mono", Menlo, monospace; font-size: 12px; }
+  .note { opacity: 0.72; }
+</style>
+</head>
+<body>
+<p>Argus analyse la posture de sécurité de cette machine et la restitue en deux
+notes distinctes, le durcissement et l'intégrité.</p>
+
+<p>La séparation est délibérée. Le durcissement mesure ce qui n'a pas été fait,
+l'intégrité mesure ce qui a peut-être déjà été fait contre vous. Une seule note
+mélangerait les deux, et un poste bien durci mais compromis se lirait comme
+sain.</p>
+
+<p class="note">Cet assistant installe le programme dans
+<code>/usr/local/bin</code>, déjà présent dans votre PATH. Aucune analyse n'est
+lancée et aucune référence d'intégrité n'est créée ici : prendre une référence
+suppose de juger la machine saine, et c'est à vous de le décider.</p>
+</body>
+</html>
