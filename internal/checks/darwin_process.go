@@ -31,8 +31,8 @@ func macProcesses(ctx *engine.Context) []model.Finding {
 	out, err := runCmd(30*time.Second, "ps", "-axo", "pid=,user=,comm=")
 	if err != nil && strings.TrimSpace(out) == "" {
 		return []model.Finding{errFinding("PROC-LIST", "process",
-			"Could not enumerate processes",
-			"ps returned nothing usable. No claim is made about running processes.")}
+			"Processus non énumérables",
+			"ps n'a rien renvoyé d'exploitable. Rien n'est affirmé sur les processus en cours.")}
 	}
 
 	haveCodesign := cmdAvailable("codesign")
@@ -77,41 +77,41 @@ func macProcesses(ctx *engine.Context) []model.Finding {
 
 	if total == 0 {
 		return []model.Finding{errFinding("PROC-LIST", "process",
-			"Could not parse the process list",
-			"ps produced output but no line matched the expected pid/user/command shape.")}
+			"Liste des processus non analysable",
+			"ps a produit une sortie mais aucune ligne ne correspond à la forme attendue.")}
 	}
 
 	var findings []model.Finding
 	if len(suspicious) > 0 {
 		findings = append(findings, fail("PROC-TEMPEXEC", "process",
-			fmt.Sprintf("%d unsigned process(es) running from a world-writable directory", len(suspicious)),
+			fmt.Sprintf("%d processus non signé(s) s'exécutant depuis un répertoire modifiable par tous", len(suspicious)),
 			model.SevHigh,
-			"Software installed normally does not execute from a temporary or shared directory, and an unsigned binary doing so has no publisher to answer for it.",
-			"Identify each process before killing it; the path and parent tell you how it got there.",
+			"Un logiciel installé normalement ne s'exécute pas depuis un répertoire temporaire ou partagé, et un binaire non signé qui le fait n'a aucun éditeur pour en répondre.",
+			"Identifier chaque processus avant de l'arrêter. Le chemin et le parent disent comment il est arrivé là.",
 			capEvidence(suspicious)...))
 	}
 	if len(signedTemp) > 0 {
 		findings = append(findings, info("PROC-TEMPSIGNED", "process",
-			fmt.Sprintf("%d signed process(es) running from a world-writable directory", len(signedTemp)),
-			"Unusual placement but a valid signature, which installers and updaters legitimately produce. Listed so an unexpected one stands out.",
+			fmt.Sprintf("%d processus signé(s) s'exécutant depuis un répertoire modifiable par tous", len(signedTemp)),
+			"Emplacement inhabituel mais signature valide, ce que produisent légitimement les installeurs et les outils de mise à jour. Listés pour qu'un cas inattendu ressorte.",
 			capEvidence(signedTemp)...))
 	}
 	if len(vanished) > 0 {
 		findings = append(findings, fail("PROC-VANISHED", "process",
-			fmt.Sprintf("%d process(es) whose executable no longer exists", len(vanished)),
+			fmt.Sprintf("%d processus dont l'exécutable n'existe plus", len(vanished)),
 			model.SevLow,
-			"Expected shortly after an update replaced the binary. Persisting across a reboot, or affecting something you did not update, is worth investigating.",
-			"Compare against your recent update history.", capEvidence(vanished)...))
+			"Attendu peu après qu'une mise à jour a remplacé le binaire. Si cela persiste après un redémarrage, ou touche quelque chose que vous n'avez pas mis à jour, cela mérite investigation.",
+			"Comparer avec votre historique récent de mises à jour.", capEvidence(vanished)...))
 	}
 	if len(unresolved) > 0 {
 		findings = append(findings, info("PROC-UNRESOLVED", "process",
-			fmt.Sprintf("%d process(es) reported without a path", len(unresolved)),
-			"ps gave a bare name for these, so their executable could not be located or verified. They are neither cleared nor suspected.",
+			fmt.Sprintf("%d processus signalé(s) sans chemin", len(unresolved)),
+			"ps n'a donné qu'un nom pour ceux-ci, leur exécutable n'a donc pas pu être localisé ni vérifié. Ils ne sont ni écartés ni suspectés.",
 			capEvidence(unresolved)...))
 	}
 	if len(suspicious) == 0 && len(vanished) == 0 {
 		findings = append(findings, pass("PROC-OK", "process",
-			fmt.Sprintf("No process anomalies among %d running processes", total)))
+			fmt.Sprintf("Aucune anomalie parmi les %d processus en cours", total)))
 	}
 	return findings
 }

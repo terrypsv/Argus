@@ -49,49 +49,49 @@ var macSuspicious = append([]string{"/users/shared/", "/tmp/", "~/library/"}, su
 
 func macPrivilege(ctx *engine.Context) []model.Finding {
 	if os.Geteuid() == 0 {
-		return []model.Finding{info("PRIV-ROOT", "system", "Running as root", "Full coverage enabled.")}
+		return []model.Finding{info("PRIV-ROOT", "system", "Exécution en root", "Couverture complète des contrôles.")}
 	}
-	return []model.Finding{info("PRIV-USER", "system", "Running without root",
-		"Some checks may be limited. Re-run with sudo for full coverage.")}
+	return []model.Finding{info("PRIV-USER", "system", "Exécution sans les droits root",
+		"Certains contrôles seront limités. Relancer avec sudo pour une couverture complète.")}
 }
 
 func macSIP(ctx *engine.Context) []model.Finding {
 	out, err := runCmd(8*time.Second, "csrutil", "status")
 	if err != nil {
-		return []model.Finding{info("SIP-UNKNOWN", "hardening", "Could not read SIP status", "")}
+		return []model.Finding{info("SIP-UNKNOWN", "hardening", "État de System Integrity Protection illisible", "")}
 	}
 	if strings.Contains(strings.ToLower(out), "enabled") {
-		return []model.Finding{pass("SIP-ON", "hardening", "System Integrity Protection is enabled")}
+		return []model.Finding{pass("SIP-ON", "hardening", "System Integrity Protection est actif")}
 	}
 	return []model.Finding{fail("SIP-OFF", "hardening",
-		"System Integrity Protection is disabled", model.SevHigh,
-		out, "Re-enable SIP from Recovery mode (`csrutil enable`); disabled SIP lets malware modify the system.")}
+		"System Integrity Protection est désactivé", model.SevHigh,
+		out, "Le réactiver depuis le mode Recovery avec csrutil enable. Désactivé, il laisse un programme malveillant modifier le système.")}
 }
 
 func macGatekeeper(ctx *engine.Context) []model.Finding {
 	out, err := runCmd(8*time.Second, "spctl", "--status")
 	if err != nil {
-		return []model.Finding{info("GK-UNKNOWN", "hardening", "Could not read Gatekeeper status", "")}
+		return []model.Finding{info("GK-UNKNOWN", "hardening", "État de Gatekeeper illisible", "")}
 	}
 	if strings.Contains(strings.ToLower(out), "assessments enabled") {
-		return []model.Finding{pass("GK-ON", "hardening", "Gatekeeper is enabled")}
+		return []model.Finding{pass("GK-ON", "hardening", "Gatekeeper est actif")}
 	}
 	return []model.Finding{fail("GK-OFF", "hardening",
-		"Gatekeeper is disabled", model.SevHigh,
-		out, "Re-enable it (`sudo spctl --master-enable`) so unsigned apps are blocked.")}
+		"Gatekeeper est désactivé", model.SevHigh,
+		out, "Le réactiver avec sudo spctl --master-enable, pour que les applications non signées soient bloquées.")}
 }
 
 func macFileVault(ctx *engine.Context) []model.Finding {
 	out, err := runCmd(8*time.Second, "fdesetup", "status")
 	if err != nil {
-		return []model.Finding{info("FV-UNKNOWN", "disk", "Could not read FileVault status", "")}
+		return []model.Finding{info("FV-UNKNOWN", "disk", "État de FileVault illisible", "")}
 	}
 	if strings.Contains(strings.ToLower(out), "filevault is on") {
-		return []model.Finding{pass("FV-ON", "disk", "FileVault disk encryption is on")}
+		return []model.Finding{pass("FV-ON", "disk", "Le chiffrement FileVault est actif")}
 	}
 	return []model.Finding{fail("FV-OFF", "disk",
-		"FileVault disk encryption is off", model.SevMedium,
-		"Data on the disk is unencrypted at rest.", "Enable FileVault in System Settings > Privacy & Security.")}
+		"Le chiffrement FileVault est inactif", model.SevMedium,
+		"Les données du disque ne sont pas chiffrées au repos.", "Activer FileVault dans Réglages Système, Confidentialité et sécurité.")}
 }
 
 func macFirewall(ctx *engine.Context) []model.Finding {
@@ -100,23 +100,23 @@ func macFirewall(ctx *engine.Context) []model.Finding {
 		out, err := runCmd(8*time.Second, sfw, "--getglobalstate")
 		if err == nil {
 			if strings.Contains(strings.ToLower(out), "enabled") {
-				return []model.Finding{pass("FW-ON", "network", "Application firewall is enabled")}
+				return []model.Finding{pass("FW-ON", "network", "Le pare-feu applicatif est actif")}
 			}
 			return []model.Finding{fail("FW-OFF", "network",
-				"Application firewall is disabled", model.SevMedium,
-				out, "Enable it in System Settings > Network > Firewall.")}
+				"Le pare-feu applicatif est inactif", model.SevMedium,
+				out, "L'activer dans Réglages Système, Réseau, Pare-feu.")}
 		}
 	}
 	// Fallback to the alf preference.
 	out, err := runCmd(8*time.Second, "defaults", "read",
 		"/Library/Preferences/com.apple.alf", "globalstate")
 	if err != nil {
-		return []model.Finding{info("FW-UNKNOWN", "network", "Could not read firewall state", "")}
+		return []model.Finding{info("FW-UNKNOWN", "network", "État du pare-feu illisible", "")}
 	}
 	if strings.TrimSpace(out) == "0" {
 		return []model.Finding{fail("FW-OFF", "network",
 			"Application firewall is disabled", model.SevMedium,
-			"globalstate = 0", "Enable the firewall in System Settings.")}
+			"globalstate = 0", "Activer le pare-feu dans Réglages Système.")}
 	}
 	return []model.Finding{pass("FW-ON", "network", "Application firewall is enabled")}
 }
@@ -141,8 +141,8 @@ func macPorts(ctx *engine.Context) []model.Finding {
 	}
 	if !ok {
 		return []model.Finding{errFinding("NET-LISTEN", "network",
-			"Could not enumerate listening sockets",
-			"Neither lsof nor netstat returned a usable socket table. Nothing is claimed about open ports; re-run with sufficient privileges.")}
+			"Sockets en écoute non énumérables",
+			"Ni lsof ni netstat n'ont renvoyé de table exploitable. Rien n'est affirmé sur les ports ouverts. Relancer avec des privilèges suffisants.")}
 	}
 
 	risky := map[int]struct {
@@ -151,7 +151,7 @@ func macPorts(ctx *engine.Context) []model.Finding {
 	}{
 		23:   {model.SevHigh, "telnet"},
 		21:   {model.SevMedium, "ftp"},
-		5900: {model.SevMedium, "VNC/screen sharing"},
+		5900: {model.SevMedium, "VNC, partage d'écran"},
 		445:  {model.SevMedium, "SMB"},
 	}
 
@@ -166,23 +166,23 @@ func macPorts(ctx *engine.Context) []model.Finding {
 		if !ok {
 			continue
 		}
-		scope := "local"
+		scope := "locale"
 		if allIf {
-			scope = "all interfaces"
+			scope = "toutes interfaces"
 		}
 		inventory = append(inventory, fmt.Sprintf("tcp/%d (%s)", port, scope))
 		if r, ok := risky[port]; ok && allIf && !seen[port] {
 			seen[port] = true
 			findings = append(findings, fail(fmt.Sprintf("NET-PORT-TCP-%d", port), "network",
-				fmt.Sprintf("%s (port %d) exposed on all interfaces", r.label, port),
-				r.sev, "Reachable from any network.", "Restrict via firewall or disable the service."))
+				fmt.Sprintf("%s (port %d) exposé sur toutes les interfaces", r.label, port),
+				r.sev, "Joignable depuis n'importe quel réseau.", "Restreindre par pare-feu ou désactiver le service."))
 		}
 	}
 	sort.Strings(inventory)
 	dedup := uniqueStrings(inventory)
 	findings = append(findings, info("NET-LISTEN", "network",
-		fmt.Sprintf("%d listening TCP socket(s)", len(dedup)),
-		"Confirm each open port is expected.", capEvidence(dedup)...))
+		fmt.Sprintf("%d socket(s) TCP en écoute", len(dedup)),
+		"Vérifier que chaque port ouvert est attendu.", capEvidence(dedup)...))
 	return findings
 }
 
@@ -282,13 +282,13 @@ func signedBy(program string) (authority string, valid bool) {
 			}
 		}
 		if teamID != "" && !strings.EqualFold(teamID, "not set") {
-			return "team " + teamID, true
+			return "équipe " + teamID, true
 		}
 		if identifier != "" {
-			return "ad-hoc, identifier " + identifier, true
+			return "signature ad hoc, identifiant " + identifier, true
 		}
 	}
-	return "valid signature, publisher not reported", true
+	return "signature valide, éditeur non communiqué", true
 }
 
 // matchedToken reports which pattern fired, so a false positive is diagnosable
@@ -338,40 +338,40 @@ func macLaunchAgents(ctx *engine.Context) []model.Finding {
 			// shipped by a vendor is signed; accusing a signed daemon of being
 			// a persistence trick teaches people to ignore the tool.
 			if !haveCodesign {
-				suspicious = append(suspicious, fmt.Sprintf("%s  [matched %q, signature not verified]", p, token))
+				suspicious = append(suspicious, fmt.Sprintf("%s  [motif %q, signature non vérifiée]", p, token))
 				continue
 			}
 			authority, valid := signedBy(programOf(content))
 			if valid {
-				benign = append(benign, fmt.Sprintf("%s  [matched %q, signed by %s]", p, token, trunc(authority, 60)))
+				benign = append(benign, fmt.Sprintf("%s  [motif %q, signé par %s]", p, token, trunc(authority, 60)))
 				continue
 			}
-			suspicious = append(suspicious, fmt.Sprintf("%s  [matched %q, no valid signature]", p, token))
+			suspicious = append(suspicious, fmt.Sprintf("%s  [motif %q, aucune signature valide]", p, token))
 		}
 	}
 
 	var out []model.Finding
 	if len(suspicious) > 0 {
 		out = append(out, fail("LA-SUSP", "persistence",
-			fmt.Sprintf("%d launch item(s) match a persistence pattern and carry no valid signature", len(suspicious)),
+			fmt.Sprintf("%d élément(s) de démarrage correspondent à un motif de persistance sans signature valide", len(suspicious)),
 			model.SevHigh,
-			"A launch item referencing temp dirs, shared folders or download tools, whose program is unsigned, is a common macOS persistence trick.",
-			"Inspect each plist; remove anything you did not install.", capEvidence(suspicious)...))
+			"Un élément de démarrage qui pointe vers un répertoire temporaire, un dossier partagé ou un outil de téléchargement, et dont le programme n'est pas signé, est un moyen de persistance courant sur macOS.",
+			"Inspecter chaque fichier plist, et retirer ce que vous n'avez pas installé.", capEvidence(suspicious)...))
 	}
 	if len(benign) > 0 {
 		out = append(out, info("LA-SIGNED", "persistence",
-			fmt.Sprintf("%d signed launch item(s) match a pattern", len(benign)),
-			"Listed for review only. The pattern fired but the program carries a valid signature, so this is not treated as tampering.",
+			fmt.Sprintf("%d élément(s) de démarrage signé(s) correspondent à un motif", len(benign)),
+			"Listés pour examen seulement. Le motif s'est déclenché mais le programme porte une signature valide, ce n'est donc pas traité comme une altération.",
 			capEvidence(benign)...))
 	}
 	if len(unreadable) > 0 {
 		out = append(out, errFinding("LA-UNREADABLE", "persistence",
-			fmt.Sprintf("%d launch item(s) could not be decoded", len(unreadable)),
-			"Binary plists that plutil could not convert. They were not inspected, so treat this as an unchecked area rather than a clean result."))
+			fmt.Sprintf("%d élément(s) de démarrage n'ont pas pu être décodés", len(unreadable)),
+			"Des fichiers plist binaires que plutil n'a pas su convertir. Ils n'ont pas été inspectés, il faut donc y voir une zone non vérifiée et non un résultat propre."))
 	}
 	out = append(out, info("LA-INV", "persistence",
-		fmt.Sprintf("%d launch item(s)", len(inventory)),
-		"Review the inventory of auto-launched items.", capEvidence(inventory)...))
+		fmt.Sprintf("%d élément(s) de démarrage", len(inventory)),
+		"Passer en revue l'inventaire des éléments lancés automatiquement.", capEvidence(inventory)...))
 	return out
 }
 
@@ -384,7 +384,7 @@ func macKexts(ctx *engine.Context) []model.Finding {
 		out, err = runCmd(10*time.Second, "kmutil", "showloaded")
 	}
 	if err != nil && out == "" {
-		return []model.Finding{info("KEXT-UNKNOWN", "kernel", "Could not list kernel extensions", "")}
+		return []model.Finding{info("KEXT-UNKNOWN", "kernel", "Extensions noyau non énumérables", "")}
 	}
 	var thirdParty []string
 	for _, l := range strings.Split(out, "\n") {
@@ -399,8 +399,8 @@ func macKexts(ctx *engine.Context) []model.Finding {
 	}
 	if len(thirdParty) > 0 {
 		return []model.Finding{info("KEXT-3RD", "kernel",
-			fmt.Sprintf("%d third-party kernel extension(s) loaded", len(thirdParty)),
-			"Third-party kexts run in the kernel - verify each vendor is trusted.", capEvidence(thirdParty)...)}
+			fmt.Sprintf("%d extension(s) noyau tierce(s) chargée(s)", len(thirdParty)),
+			"Une extension tierce s'exécute dans le noyau. Vérifier que chaque éditeur est digne de confiance.", capEvidence(thirdParty)...)}
 	}
-	return []model.Finding{pass("KEXT-OK", "kernel", "Only Apple kernel extensions loaded")}
+	return []model.Finding{pass("KEXT-OK", "kernel", "Seules des extensions noyau Apple sont chargées")}
 }
