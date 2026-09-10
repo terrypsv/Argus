@@ -32,8 +32,8 @@ func macAccounts(ctx *engine.Context) []model.Finding {
 	switch {
 	case err != nil || strings.TrimSpace(ids) == "":
 		out = append(out, errFinding("ACC-UID0", "accounts",
-			"Could not enumerate local accounts",
-			"dscl returned nothing usable. No claim is made about privileged accounts."))
+			"Comptes locaux non énumérables",
+			"dscl n'a rien renvoyé d'exploitable. Rien n'est affirmé sur les comptes privilégiés."))
 	default:
 		var uid0 []string
 		parsed := 0
@@ -55,16 +55,16 @@ func macAccounts(ctx *engine.Context) []model.Finding {
 		switch {
 		case parsed == 0:
 			out = append(out, errFinding("ACC-UID0", "accounts",
-				"Could not parse the account list",
-				"dscl output did not contain any name/uid pair in the expected shape."))
+				"Liste des comptes non analysable",
+				"La sortie de dscl ne contient aucun couple nom et identifiant dans la forme attendue."))
 		case len(uid0) > 0:
 			out = append(out, fail("ACC-UID0", "accounts",
-				fmt.Sprintf("%d account(s) other than root hold UID 0", len(uid0)),
+				fmt.Sprintf("%d compte(s) autre(s) que root portent l'UID 0", len(uid0)),
 				model.SevCritical,
-				"A second UID 0 account is full root access under another name, and is a classic way to keep privileged access after a compromise.",
-				"Remove the account or give it a normal UID.", capEvidence(uid0)...))
+				"Un second compte d'UID 0 est un accès root complet sous un autre nom, et c'est une façon classique de conserver un accès privilégié après une compromission.",
+				"Supprimer le compte ou lui donner un identifiant ordinaire.", capEvidence(uid0)...))
 		default:
-			out = append(out, pass("ACC-UID0", "accounts", "Only root holds UID 0"))
+			out = append(out, pass("ACC-UID0", "accounts", "Seul root porte l'UID 0"))
 		}
 	}
 
@@ -74,8 +74,8 @@ func macAccounts(ctx *engine.Context) []model.Finding {
 			members := strings.Fields(admins[i+1:])
 			if len(members) > 0 {
 				out = append(out, info("ADM-LIST", "accounts",
-					fmt.Sprintf("%d administrator account(s)", len(members)),
-					"Every one of these can escalate to root. Confirm each is expected.",
+					fmt.Sprintf("%d compte(s) administrateur", len(members)),
+					"Chacun d'eux peut s'élever jusqu'à root. Vérifier que chacun est attendu.",
 					members...))
 			}
 		}
@@ -90,11 +90,11 @@ func macAccounts(ctx *engine.Context) []model.Finding {
 		switch strings.TrimSpace(guest) {
 		case "1":
 			out = append(out, fail("GUEST-ON", "accounts",
-				"Guest account is enabled", model.SevMedium,
-				"Anyone with physical access gets a session without credentials.",
-				"Disable it in System Settings > Users & Groups."))
+				"Le compte Invité est activé", model.SevMedium,
+				"Quiconque a un accès physique obtient une session sans identifiants.",
+				"Le désactiver dans Réglages Système, Utilisateurs et groupes."))
 		case "0":
-			out = append(out, pass("GUEST-OFF", "accounts", "Guest account is disabled"))
+			out = append(out, pass("GUEST-OFF", "accounts", "Le compte Invité est désactivé"))
 		}
 	}
 	// A missing key means the default, which is disabled; that is not worth a
@@ -113,20 +113,20 @@ func macRemoteAccess(ctx *engine.Context) []model.Finding {
 	switch {
 	case err != nil:
 		out = append(out, errFinding("SSH-REMOTE", "ssh",
-			"Could not read the Remote Login setting",
-			"systemsetup failed, usually for lack of privilege or Full Disk Access. Nothing is claimed about SSH exposure."))
+			"Réglage Remote Login illisible",
+			"systemsetup a échoué, en général faute de privilèges ou d'accès complet au disque. Rien n'est affirmé sur l'exposition SSH."))
 	case strings.Contains(login, "On"):
 		sshOn = true
 		out = append(out, fail("SSH-REMOTE", "ssh",
-			"Remote Login (SSH) is enabled", model.SevMedium,
-			"The host accepts SSH sessions from the network.",
-			"Turn it off in System Settings > General > Sharing if you do not need it."))
+			"Remote Login (SSH) est activé", model.SevMedium,
+			"La machine accepte des sessions SSH depuis le réseau.",
+			"Le désactiver dans Réglages Système, Général, Partage, si vous n'en avez pas besoin."))
 	case strings.Contains(login, "Off"):
-		out = append(out, pass("SSH-REMOTE", "ssh", "Remote Login (SSH) is disabled"))
+		out = append(out, pass("SSH-REMOTE", "ssh", "Remote Login (SSH) est désactivé"))
 	default:
 		out = append(out, errFinding("SSH-REMOTE", "ssh",
-			"Unrecognised Remote Login output",
-			"systemsetup answered in a shape this check does not understand, so no conclusion is drawn."))
+			"Sortie Remote Login non reconnue",
+			"systemsetup a répondu dans une forme que ce contrôle ne sait pas interpréter, aucune conclusion n'est tirée."))
 	}
 
 	// The daemon's configuration only matters when the daemon can be reached.
@@ -142,15 +142,15 @@ func macRemoteAccess(ctx *engine.Context) []model.Finding {
 	if disabled, dErr := runCmdCombined(10*time.Second, "launchctl", "print-disabled", "system"); dErr == nil {
 		if on, known := launchdEnabled(disabled, "com.apple.screensharing"); known && on {
 			out = append(out, fail("VNC-ON", "network",
-				"Screen Sharing is enabled", model.SevMedium,
-				"The desktop is reachable over VNC, a protocol whose macOS implementation authenticates but does not protect the session end to end.",
-				"Disable it in System Settings > General > Sharing if unused."))
+				"Screen Sharing est activé", model.SevMedium,
+				"Le bureau est joignable en VNC, un protocole dont l'implémentation macOS authentifie mais ne protège pas la session de bout en bout.",
+				"Le désactiver dans Réglages Système, Général, Partage, s'il ne sert pas."))
 		}
 	}
 	if on, why := ardActive(); on {
 		out = append(out, fail("RM-ON", "network",
-			"Remote Management (ARD) is enabled", model.SevMedium,
-			"Apple Remote Desktop allows screen control and remote command execution. Detected by "+why+".",
+			"Remote Management (ARD) est activé", model.SevMedium,
+			"Apple Remote Desktop permet la prise en main de l'écran et l'exécution de commandes à distance. Détecté par "+why+".",
 			"Disable it in System Settings > General > Sharing if unused."))
 	}
 
@@ -160,9 +160,9 @@ func macRemoteAccess(ctx *engine.Context) []model.Finding {
 		"/Library/Preferences/com.apple.RemoteManagement", "ARD_AllLocalUsers"); aErr == nil {
 		if strings.TrimSpace(allUsers) == "1" {
 			out = append(out, fail("ARD-ALLUSERS", "network",
-				"Remote Management is open to all local users", model.SevHigh,
-				"Every local account, including any added later, gets screen control and remote command execution.",
-				"Restrict Remote Management to named users."))
+				"Remote Management est ouvert à tous les comptes locaux", model.SevHigh,
+				"Chaque compte local, y compris ceux ajoutés plus tard, obtient la prise en main de l'écran et l'exécution de commandes à distance.",
+				"Restreindre Remote Management à des utilisateurs nommés."))
 		}
 	}
 	// A missing key means access was not granted to everyone, which needs no
@@ -181,11 +181,11 @@ func ardActive() (bool, string) {
 	const trigger = "/Library/Application Support/Apple/Remote Desktop/RemoteManagement.launchd"
 	if fileExists(trigger) {
 		if strings.Contains(strings.ToLower(readFile(trigger)), "enabled") {
-			return true, "the ARD activation trigger"
+			return true, "le marqueur d'activation ARD"
 		}
 	}
 	if out, err := runCmd(10*time.Second, "pgrep", "-x", "ARDAgent"); err == nil && strings.TrimSpace(out) != "" {
-		return true, "a running ARDAgent process"
+		return true, "un processus ARDAgent en cours"
 	}
 	return false, ""
 }
@@ -218,14 +218,14 @@ func launchdEnabled(out, label string) (enabled bool, known bool) {
 func macSSHConfig() []model.Finding {
 	const path = "/etc/ssh/sshd_config"
 	if !fileExists(path) {
-		return []model.Finding{info("SSH-NOCONF", "ssh", "No sshd_config found",
-			"Remote Login is on but the configuration file is missing; the daemon is running on built-in defaults.")}
+		return []model.Finding{info("SSH-NOCONF", "ssh", "Aucun sshd_config trouvé",
+			"Remote Login est actif mais le fichier de configuration est absent. Le démon tourne sur ses valeurs par défaut.")}
 	}
 	lines := readLines(path)
 	if len(lines) == 0 {
 		return []model.Finding{errFinding("SSH-NOCONF", "ssh",
-			"sshd_config could not be read",
-			"Remote Login is enabled but its configuration was unreadable, so no claim is made about it.")}
+			"sshd_config illisible",
+			"Remote Login est actif mais sa configuration n'a pas pu être lue, rien n'est donc affirmé à son sujet.")}
 	}
 
 	value := func(key string) string {
@@ -248,24 +248,24 @@ func macSSHConfig() []model.Finding {
 	var out []model.Finding
 	if v := value("PermitRootLogin"); v == "yes" {
 		out = append(out, fail("SSH-ROOT", "ssh",
-			"SSH permits root login", model.SevHigh,
-			"PermitRootLogin yes lets an attacker attack root directly, with no audit trail of who escalated.",
-			"Set PermitRootLogin no, or prohibit-password at the very least."))
+			"SSH autorise la connexion root", model.SevHigh,
+			"PermitRootLogin yes laisse attaquer root directement, sans trace de qui s'est élevé.",
+			"Poser PermitRootLogin no, ou prohibit-password au minimum."))
 	}
 	if v := value("PasswordAuthentication"); v == "yes" {
 		out = append(out, fail("SSH-PWAUTH", "ssh",
-			"SSH password authentication is enabled", model.SevMedium,
-			"Passwords can be guessed at scale; keys cannot.",
-			"Set PasswordAuthentication no once key-based login works."))
+			"L'authentification SSH par mot de passe est activée", model.SevMedium,
+			"Un mot de passe se devine à grande échelle, une clé non.",
+			"Poser PasswordAuthentication no une fois la connexion par clé opérationnelle."))
 	}
 	if v := value("PermitEmptyPasswords"); v == "yes" {
 		out = append(out, fail("SSH-EMPTYPW", "ssh",
-			"SSH permits empty passwords", model.SevCritical,
-			"Any account with no password becomes a remote entry point.",
-			"Set PermitEmptyPasswords no."))
+			"SSH autorise les mots de passe vides", model.SevCritical,
+			"Tout compte sans mot de passe devient un point d'entrée distant.",
+			"Poser PermitEmptyPasswords no."))
 	}
 	if len(out) == 0 {
-		out = append(out, pass("SSH-CONF", "ssh", "sshd configuration has no obvious weakness"))
+		out = append(out, pass("SSH-CONF", "ssh", "La configuration sshd ne présente aucune faiblesse manifeste"))
 	}
 	return out
 }
@@ -283,19 +283,19 @@ func macSystemIntegrity(ctx *engine.Context) []model.Finding {
 	switch {
 	case err != nil && ssv == "":
 		out = append(out, errFinding("SSV-STATE", "hardening",
-			"Could not read the signed system volume status",
-			"csrutil returned nothing usable, so no claim is made."))
+			"État du volume système scellé illisible",
+			"csrutil n'a rien renvoyé d'exploitable, rien n'est donc affirmé."))
 	case strings.Contains(low, "disabled"):
 		out = append(out, fail("SSV-OFF", "hardening",
-			"Signed system volume is disabled", model.SevHigh,
-			"The seal that makes system binaries immutable has been removed, which is a deliberate act and a prerequisite for persistent system-level tampering.",
-			"Re-enable it from Recovery: csrutil authenticated-root enable."))
+			"Le volume système scellé est désactivé", model.SevHigh,
+			"Le sceau qui rend les binaires système immuables a été retiré. C'est un acte délibéré, et un préalable à toute altération durable au niveau système.",
+			"Le réactiver depuis Recovery avec csrutil authenticated-root enable."))
 	case strings.Contains(low, "enabled"):
-		out = append(out, pass("SSV-ON", "hardening", "Signed system volume is enabled"))
+		out = append(out, pass("SSV-ON", "hardening", "Le volume système scellé est actif"))
 	default:
 		out = append(out, errFinding("SSV-STATE", "hardening",
-			"Unrecognised signed system volume output",
-			"csrutil answered in a shape this check does not understand."))
+			"Sortie du volume système scellé non reconnue",
+			"csrutil a répondu dans une forme que ce contrôle ne sait pas interpréter."))
 	}
 
 	// --- automatic updates ---------------------------------------------------
@@ -309,15 +309,15 @@ func macSystemIntegrity(ctx *engine.Context) []model.Finding {
 	}
 	if v, ok := readFlag("AutomaticCheckEnabled"); ok && v == "0" {
 		out = append(out, fail("UPD-NOCHECK", "hardening",
-			"Automatic update checks are disabled", model.SevMedium,
-			"The machine will not learn that a patch exists.",
-			"Re-enable update checks in System Settings > General > Software Update."))
+			"La recherche automatique de mises à jour est désactivée", model.SevMedium,
+			"La machine n'apprendra pas qu'un correctif existe.",
+			"Réactiver la recherche dans Réglages Système, Général, Mise à jour de logiciels."))
 	}
 	if v, ok := readFlag("CriticalUpdateInstall"); ok && v == "0" {
 		out = append(out, fail("UPD-NOCRITICAL", "hardening",
-			"Automatic install of critical security updates is disabled", model.SevMedium,
-			"XProtect and malware-removal definitions will not update on their own.",
-			"Enable security responses in System Settings > General > Software Update."))
+			"L'installation automatique des correctifs de sécurité critiques est désactivée", model.SevMedium,
+			"Les définitions XProtect et de suppression de logiciels malveillants ne se mettront pas à jour d'elles-mêmes.",
+			"Activer les réponses de sécurité dans Réglages Système, Général, Mise à jour de logiciels."))
 	}
 
 	return out
@@ -333,8 +333,8 @@ func macSystemExtensions(ctx *engine.Context) []model.Finding {
 	out, err := runCmdCombined(20*time.Second, "systemextensionsctl", "list")
 	if err != nil && strings.TrimSpace(out) == "" {
 		return []model.Finding{errFinding("SYSEXT-LIST", "kernel",
-			"Could not list system extensions",
-			"systemextensionsctl returned nothing usable, so no claim is made about loaded extensions.")}
+			"Extensions système non énumérables",
+			"systemextensionsctl n'a rien renvoyé d'exploitable, rien n'est donc affirmé sur les extensions chargées.")}
 	}
 
 	var active []string
@@ -348,10 +348,10 @@ func macSystemExtensions(ctx *engine.Context) []model.Finding {
 		active = append(active, trunc(l, 140))
 	}
 	if len(active) == 0 {
-		return []model.Finding{pass("SYSEXT-NONE", "kernel", "No third-party system extensions are active")}
+		return []model.Finding{pass("SYSEXT-NONE", "kernel", "Aucune extension système tierce n'est active")}
 	}
 	return []model.Finding{info("SYSEXT-ACTIVE", "kernel",
-		fmt.Sprintf("%d active system extension(s)", len(active)),
-		"System extensions run with high privilege and can inspect network traffic or filter files. Confirm each vendor is expected.",
+		fmt.Sprintf("%d extension(s) système active(s)", len(active)),
+		"Une extension système s'exécute avec de hauts privilèges et peut inspecter le trafic réseau ou filtrer les fichiers. Vérifier que chaque éditeur est attendu.",
 		capEvidence(active)...)}
 }
