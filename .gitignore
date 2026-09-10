@@ -30,3 +30,10 @@ argus-exceptions.json
 # profils de couverture: produits par une mesure, jamais versionnes
 couverture
 *.out
+
+# binaires compiles localement
+argus
+argus.exe
+argus_linux
+argus_darwin
+*.exe
