@@ -89,7 +89,7 @@ func TestReadOnlyVolumeNeverAlerts(t *testing.T) {
 	}
 	// Visible mais non alerte: retirer un volume de l'inventaire le rendrait
 	// invisible, ce qui est un autre defaut.
-	if !strings.Contains(strings.Join(inventory.Evidence, " "), "read-only") {
+	if !strings.Contains(strings.Join(inventory.Evidence, " "), "lecture seule") {
 		t.Errorf("le volume doit rester dans l'inventaire, marque: %v", inventory.Evidence)
 	}
 }
@@ -137,7 +137,7 @@ func TestEachVolumeIsJudgedSeparately(t *testing.T) {
 	if len(inventory.Evidence) != 4 {
 		t.Errorf("inventaire = %d entrees, want 4", len(inventory.Evidence))
 	}
-	if !strings.Contains(inventory.Title, "4 filesystem") {
+	if !strings.Contains(inventory.Title, "4 volume") {
 		t.Errorf("titre = %q", inventory.Title)
 	}
 }
