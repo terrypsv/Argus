@@ -39,7 +39,7 @@ func (c certInfo) label() string {
 	// Subject first so the sorted inventory reads alphabetically, fingerprint
 	// last so that two certificates sharing a subject stay distinguishable and
 	// a re-issued one reads as a change rather than as noise.
-	return fmt.Sprintf("%s  (expires %s)  %s",
+	return fmt.Sprintf("%s  (expire le %s)  %s",
 		trunc(c.subject, 90), c.expires.Format("2006-01-02"), c.sha1[:16])
 }
 
@@ -110,8 +110,8 @@ func certSubject(c *x509.Certificate) string {
 func rootStoreFindings(all []certInfo, vendorLabel string) []model.Finding {
 	if len(all) == 0 {
 		return []model.Finding{errFinding("CERT-ROOT-INV", "certificates",
-			"Could not read the trusted root store",
-			"No certificate could be parsed. Nothing is claimed about the machine's trust anchors.")}
+			"Magasin de racines de confiance illisible",
+			"Aucun certificat n'a pu être analysé. Rien n'est affirmé sur les ancres de confiance de cette machine.")}
 	}
 
 	now := time.Now()
@@ -144,30 +144,30 @@ func rootStoreFindings(all []certInfo, vendorLabel string) []model.Finding {
 
 	if len(intercept) > 0 {
 		out = append(out, fail("CERT-INTERCEPT", "certificates",
-			fmt.Sprintf("%d trusted root(s) belong to a TLS interception product", len(intercept)),
+			fmt.Sprintf("%d racine(s) de confiance appartiennent à un produit d'interception TLS", len(intercept)),
 			model.SevMedium,
-			"Traffic to every HTTPS site on this machine is decrypted and re-encrypted by the holder of this root. That is how antivirus and corporate proxies inspect TLS, and it means a leak of that private key would let anyone forge any site for this host.",
-			"If this is deliberate, record the decision: argus accept CERT-INTERCEPT --reason \"...\". Otherwise remove the root and find out how it got there.",
+			"Le trafic vers chaque site HTTPS de cette machine est déchiffré puis rechiffré par le détenteur de cette racine. C'est ainsi qu'un antivirus ou un proxy d'entreprise inspecte le TLS, et cela signifie qu'une fuite de cette clé privée permettrait de contrefaire n'importe quel site pour cette machine.",
+			"Si c'est délibéré, consigner la décision avec argus accept CERT-INTERCEPT --reason \"...\". Sinon, retirer la racine et déterminer comment elle est arrivée là.",
 			capEvidence(intercept)...))
 	}
 
 	if len(localOnes) > 0 {
 		out = append(out, info("CERT-LOCAL", "certificates",
-			fmt.Sprintf("%d trusted root(s) were added on this machine", len(localOnes)),
-			"These are not shipped by the operating system vendor. Each one can vouch for any domain, so each should correspond to something you installed on purpose.",
+			fmt.Sprintf("%d racine(s) de confiance ont été ajoutées sur cette machine", len(localOnes)),
+			"Elles ne sont pas livrées par l'éditeur du système. Chacune peut se porter garante de n'importe quel domaine, donc chacune devrait correspondre à quelque chose que vous avez installé sciemment.",
 			capEvidence(localOnes)...))
 	}
 
 	if len(expired) > 0 {
 		out = append(out, info("CERT-EXPIRED", "certificates",
-			fmt.Sprintf("%d trusted root(s) have expired", len(expired)),
-			"An expired root cannot validate a new chain, so this is housekeeping rather than exposure. Not scored for that reason.",
+			fmt.Sprintf("%d racine(s) de confiance ont expiré", len(expired)),
+			"Une racine expirée ne peut plus valider de chaîne. Il s'agit donc de ménage et non d'exposition, et elle n'est pas comptée dans la note pour cette raison.",
 			capEvidence(expired)...))
 	}
 
 	out = append(out, info("CERT-ROOT-INV", "certificates",
-		fmt.Sprintf("%d trusted root certificate(s) (%s)", len(inventory), vendorLabel),
-		"Any one of these can vouch for any domain. A root that appeared since the previous scan is the signal worth acting on; compare with argus diff.",
+		fmt.Sprintf("%d certificat(s) racine de confiance (%s)", len(inventory), vendorLabel),
+		"Chacune peut se porter garante de n'importe quel domaine. Une racine apparue depuis l'analyse précédente est le signal sur lequel agir, à comparer avec argus diff.",
 		capEvidence(inventory)...))
 
 	return out
