@@ -1,0 +1,178 @@
+.\" Copyright (c) 2026 Terry Passave. All rights reserved.
+.TH ARGUS 1 "2026" "Steelveil" "Manuel de l'utilisateur"
+
+.SH NOM
+argus \- bulletin de posture de sécurité d'un poste
+
+.SH SYNOPSIS
+.B argus
+.RI [ commande ]
+.RI [ options ]
+
+.SH DESCRIPTION
+.B argus
+analyse la posture de sécurité d'une machine et la restitue en deux notes
+distinctes, le durcissement et l'intégrité.
+.PP
+La séparation est délibérée. Le durcissement mesure ce qui n'a pas été fait,
+l'intégrité mesure ce qui a peut-être déjà été fait contre vous. Une seule note
+mélangerait les deux, et un poste bien durci mais compromis se lirait comme
+sain. L'intégrité prime donc dans le verdict final.
+.PP
+Chaque analyse produit des constats portant un identifiant stable, une gravité,
+les preuves relevées et la remédiation. Un constat examiné peut être accepté
+avec un motif, une date et un auteur : il reste compté à part et n'est jamais
+confondu avec un contrôle réussi, car un renoncement n'est pas une correction.
+
+.SH COMMANDES
+.TP
+.B scan
+Analyse la machine. C'est la commande par défaut lorsqu'aucune n'est indiquée.
+.TP
+.B baseline
+Enregistre les empreintes SHA-256 des fichiers critiques du système, qui
+serviront de référence aux analyses suivantes.
+.TP
+.B accept \fIID\fR
+Accepte un constat examiné comme exception connue. Exige
+.BR \-\-reason .
+.TP
+.B unaccept \fIID\fR
+Annule une acceptation.
+.TP
+.B exceptions
+Liste ce qui est porté sciemment.
+.TP
+.B diff \fIavant\fR \fIaprès\fR
+Compare deux rapports JSON. C'est la commande qui transforme un inventaire en
+détection : une racine de confiance ou un élément de démarrage apparu depuis
+l'analyse précédente est le signal sur lequel agir.
+.TP
+.B serve
+Analyse, puis ouvre le rapport dans le navigateur. L'option
+.B \-\-report
+sert un rapport JSON déjà enregistré au lieu d'analyser.
+.TP
+.B version
+Affiche la version.
+
+.SH OPTIONS D'ANALYSE
+.TP
+.BI \-\-json " chemin"
+Écrit un rapport JSON.
+.TP
+.BI \-\-md " chemin"
+Écrit un rapport Markdown.
+.TP
+.BI \-\-out " dossier"
+Écrit les deux rapports dans le dossier indiqué.
+.TP
+.BI \-\-baseline " chemin"
+Fichier de référence d'intégrité.
+.TP
+.BI \-\-exceptions " chemin"
+Fichier des constats acceptés.
+.TP
+.BI \-\-roots " liste"
+Remplace les racines de système de fichiers à parcourir.
+.TP
+.B \-\-quick
+Saute les parcours de fichiers lents, notamment la recherche des binaires SUID
+et des fichiers modifiables par tous.
+.TP
+.BI \-\-profile " nom"
+Classe de machine :
+.IR workstation ,
+.IR audit ,
+.IR container .
+Le profil décide des exemptions applicables, ce qui évite de reprocher à un
+conteneur ce qui n'a de sens que sur un poste de travail.
+.TP
+.B \-\-verify\-packages
+Compare chaque fichier installé aux empreintes publiées par la distribution.
+Lent, mais insensible à la faiblesse d'une référence construite localement, qui
+suppose la machine saine au moment où on la prend.
+.TP
+.B \-\-no\-color
+Désactive la couleur.
+.TP
+.B \-\-quiet
+Masque la progression contrôle par contrôle.
+.TP
+.B \-\-brief
+Produit une seule ligne analysable au lieu du rapport complet, pour une tâche
+planifiée qui doit alerter sur une valeur plutôt que lire une page.
+.TP
+.BI \-\-fail\-under " n"
+Sort en 2 si la note globale est inférieure à
+.IR n .
+.TP
+.BI \-\-fail\-under\-integrity " n"
+Sort en 3 si la note d'intégrité est inférieure à
+.IR n .
+
+.SH CODES DE SORTIE
+.TP
+.B 0
+Analyse terminée, seuils respectés.
+.TP
+.B 1
+Erreur d'usage.
+.TP
+.B 2
+Note globale sous le seuil fixé par
+.BR \-\-fail\-under .
+.TP
+.B 3
+Note d'intégrité sous le seuil fixé par
+.BR \-\-fail\-under\-integrity .
+
+.SH ENVIRONNEMENT
+.TP
+.B NO_COLOR
+Si cette variable est définie, la sortie ne contient aucune couleur. Les
+couleurs sont également retirées dès que la sortie n'est pas un terminal.
+
+.SH EXEMPLES
+Analyser la machine :
+.PP
+.RS
+.B argus
+.RE
+.PP
+Enregistrer la référence d'intégrité, puis analyser en écrivant les rapports :
+.PP
+.RS
+.B argus baseline
+.br
+.B argus scan \-\-out ./rapports
+.RE
+.PP
+Assumer un constat après examen :
+.PP
+.RS
+.B argus accept CERT\-INTERCEPT \-\-reason "l'antivirus analyse le HTTPS" \-\-by terry \-\-days 90
+.RE
+.PP
+Comparer deux analyses pour voir ce qui a changé :
+.PP
+.RS
+.B argus diff rapports/avant.json rapports/apres.json
+.RE
+
+.SH AVERTISSEMENT
+Une analyse propre n'est pas une preuve de sûreté. Argus vérifie ce qu'il sait
+vérifier, et un contrôle qui n'a pas pu s'exécuter est signalé comme tel plutôt
+que compté comme réussi : une zone non vérifiée ne doit jamais se lire comme un
+résultat propre.
+
+.SH DÉSINSTALLATION
+.TP
+Debian et dérivés
+.B sudo apt remove argus
+.PP
+Les rapports, la référence d'intégrité et le fichier des exceptions ne sont pas
+supprimés : ce sont vos données.
+
+.SH AUTEUR
+Terry Passave, pour Steelveil.
