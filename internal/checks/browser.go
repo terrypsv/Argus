@@ -47,18 +47,18 @@ var permissionRisk = map[string]struct {
 	severity model.Severity
 	meaning  string
 }{
-	"<all_urls>":      {model.SevHigh, "lit et modifie le contenu de tous les sites visites"},
-	"*://*/*":         {model.SevHigh, "lit et modifie le contenu de tous les sites visites"},
+	"<all_urls>":      {model.SevHigh, "lit et modifie le contenu de tous les sites visités"},
+	"*://*/*":         {model.SevHigh, "lit et modifie le contenu de tous les sites visités"},
 	"http://*/*":      {model.SevHigh, "lit et modifie le contenu de tous les sites en clair"},
-	"https://*/*":     {model.SevHigh, "lit et modifie le contenu de tous les sites chiffres"},
+	"https://*/*":     {model.SevHigh, "lit et modifie le contenu de tous les sites chiffrés"},
 	"cookies":         {model.SevHigh, "lit les cookies, donc les sessions ouvertes"},
-	"webRequest":      {model.SevHigh, "observe toutes les requetes reseau du navigateur"},
-	"debugger":        {model.SevHigh, "pilote le navigateur comme le ferait un outil de developpement"},
-	"nativeMessaging": {model.SevHigh, "communique avec un programme installe hors du navigateur"},
+	"webRequest":      {model.SevHigh, "observe toutes les requêtes réseau du navigateur"},
+	"debugger":        {model.SevHigh, "pilote le navigateur comme le ferait un outil de développement"},
+	"nativeMessaging": {model.SevHigh, "communique avec un programme installé hors du navigateur"},
 	"proxy":           {model.SevHigh, "redirige le trafic du navigateur"},
 	"history":         {model.SevMedium, "lit l'historique de navigation complet"},
-	"downloads":       {model.SevMedium, "declenche et lit les telechargements"},
-	"management":      {model.SevMedium, "active ou desactive les autres extensions"},
+	"downloads":       {model.SevMedium, "déclenche et lit les téléchargements"},
+	"management":      {model.SevMedium, "active ou désactive les autres extensions"},
 	"tabs":            {model.SevMedium, "voit les adresses de tous les onglets ouverts"},
 	"clipboardRead":   {model.SevMedium, "lit le presse-papiers"},
 	"bookmarks":       {model.SevLow, "lit et modifie les favoris"},
@@ -93,8 +93,8 @@ func browserExtensionsCheck(ctx *engine.Context) []model.Finding {
 	roots := extensionRoots()
 	if len(roots) == 0 {
 		return []model.Finding{info("EXT-NONE", "browser",
-			"Aucun profil de navigateur trouve",
-			"Aucun repertoire d'extensions connu n'existe sur ce poste.")}
+			"Aucun profil de navigateur trouvé",
+			"Aucun répertoire d'extensions connu n'existe sur ce poste.")}
 	}
 
 	var all []extension
@@ -112,13 +112,13 @@ func browserExtensionsCheck(ctx *engine.Context) []model.Finding {
 		// Announcing zero extensions when the directories could not be read
 		// would be a false all-clear, which is worse than saying nothing.
 		return []model.Finding{errFinding("EXT-READ", "browser",
-			"Les repertoires d'extensions n'ont pas pu etre lus",
-			"Les profils existent mais leur contenu est inaccessible. Relancer avec les droits de l'utilisateur concerne.")}
+			"Les répertoires d'extensions n'ont pas pu être lus",
+			"Les profils existent mais leur contenu est inaccessible. Relancer avec les droits de l'utilisateur concerné.")}
 	}
 
 	if len(all) == 0 {
 		return []model.Finding{pass("EXT-CLEAN", "browser",
-			"Aucune extension de navigateur installee")}
+			"Aucune extension de navigateur installée")}
 	}
 
 	var out []model.Finding
@@ -147,20 +147,20 @@ func browserExtensionsCheck(ctx *engine.Context) []model.Finding {
 	// extensions nobody remembers installing, and listing them is half the
 	// value of the check.
 	out = append(out, info("EXT-INVENTORY", "browser",
-		fmt.Sprintf("%d extension(s) de navigateur installee(s)", len(all)),
-		"Une extension s'execute apres le dechiffrement TLS et apres l'authentification. Ni le pare-feu ni la supervision reseau ne voient ce qu'elle lit.",
+		fmt.Sprintf("%d extension(s) de navigateur installée(s)", len(all)),
+		"Une extension s'exécute après le déchiffrement TLS et après l'authentification. Ni le pare-feu ni la supervision réseau ne voient ce qu'elle lit.",
 		inventory...))
 
 	if len(risky) > 0 {
 		out = append(out, fail("EXT-PERMISSIONS", "browser",
-			fmt.Sprintf("%d extension(s) disposent de permissions etendues", len(risky)),
+			fmt.Sprintf("%d extension(s) disposent de permissions étendues", len(risky)),
 			worst,
-			"Ces extensions peuvent lire ou modifier le contenu des pages visitees, y compris les sessions authentifiees. Le risque ne tient pas a leur honnetete actuelle: une permission accordee survit a un changement de proprietaire, et les extensions changent de mains discretement.",
-			"Verifier que chaque extension listee est encore utilisee et que ses permissions correspondent a sa fonction reelle. Retirer celles qui ne servent plus. Une extension de mise en forme n'a aucune raison de lire tous les sites.",
+			"Ces extensions peuvent lire ou modifier le contenu des pages visitées, y compris les sessions authentifiées. Le risque ne tient pas à leur honnêteté actuelle. Une permission accordée survit à un changement de propriétaire, et les extensions changent de mains discrètement.",
+			"Vérifier que chaque extension listée est encore utilisée et que ses permissions correspondent à sa fonction réelle. Retirer celles qui ne servent plus. Une extension de mise en forme n'a aucune raison de lire tous les sites.",
 			risky...))
 	} else {
 		out = append(out, pass("EXT-PERMISSIONS", "browser",
-			"Aucune extension ne dispose de permissions etendues"))
+			"Aucune extension ne dispose de permissions étendues"))
 	}
 
 	return out
@@ -431,7 +431,7 @@ func parseChromiumManifest(browser, id, path string, data []byte) (extension, bo
 				risk = struct {
 					severity model.Severity
 					meaning  string
-				}{model.SevHigh, "lit et modifie le contenu de tous les sites visites"}
+				}{model.SevHigh, "lit et modifie le contenu de tous les sites visités"}
 				known = true
 			}
 		}
