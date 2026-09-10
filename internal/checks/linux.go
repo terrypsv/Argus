@@ -55,11 +55,11 @@ func DefaultCriticalPaths() []string {
 func privilegeCheck(ctx *engine.Context) []model.Finding {
 	if os.Geteuid() == 0 {
 		return []model.Finding{info("PRIV-ROOT", "system",
-			"Running as root", "Full coverage enabled.")}
+			"Exécution en root", "Couverture complète des contrôles.")}
 	}
 	return []model.Finding{info("PRIV-USER", "system",
-		"Running without root",
-		"Some checks (shadow file, firewall rules, all cron spools) are limited. Re-run with sudo for full coverage.")}
+		"Exécution sans les droits root",
+		"Certains contrôles sont limités, dont le fichier shadow, les règles de pare-feu et les tables cron. Relancer avec sudo pour une couverture complète.")}
 }
 
 // --- kernel hardening ---------------------------------------------------------
@@ -87,24 +87,24 @@ func kernelHardeningCheck(ctx *engine.Context) []model.Finding {
 		return func(v string) bool { return v == want }
 	}
 	rules := []rule{
-		{"kernel.randomize_va_space", "Full ASLR", eqStr("2"), model.SevHigh,
-			"Set kernel.randomize_va_space=2 in /etc/sysctl.d/."},
-		{"kernel.kptr_restrict", "Kernel pointer hiding", geInt(1), model.SevMedium,
-			"Set kernel.kptr_restrict=1 to hide kernel addresses from unprivileged users."},
-		{"kernel.dmesg_restrict", "dmesg restriction", eqStr("1"), model.SevLow,
-			"Set kernel.dmesg_restrict=1."},
-		{"kernel.yama.ptrace_scope", "ptrace restriction", geInt(1), model.SevMedium,
-			"Set kernel.yama.ptrace_scope=1 to block cross-process memory injection."},
+		{"kernel.randomize_va_space", "Randomisation complète de l'espace d'adressage", eqStr("2"), model.SevHigh,
+			"Poser kernel.randomize_va_space=2 dans /etc/sysctl.d/."},
+		{"kernel.kptr_restrict", "Masquage des adresses du noyau", geInt(1), model.SevMedium,
+			"Poser kernel.kptr_restrict=1 pour masquer les adresses du noyau aux utilisateurs ordinaires."},
+		{"kernel.dmesg_restrict", "Restriction de dmesg", eqStr("1"), model.SevLow,
+			"Poser kernel.dmesg_restrict=1."},
+		{"kernel.yama.ptrace_scope", "Restriction de ptrace", geInt(1), model.SevMedium,
+			"Poser kernel.yama.ptrace_scope=1 pour bloquer l'injection de mémoire entre processus."},
 		// 0 = unprivileged BPF allowed. 1 = disabled permanently, 2 = disabled
 		// but re-enablable by root. Both 1 and 2 mean it is currently disabled.
-		{"kernel.unprivileged_bpf_disabled", "Unprivileged eBPF disabled", geInt(1), model.SevMedium,
-			"Set kernel.unprivileged_bpf_disabled=1."},
-		{"fs.protected_hardlinks", "Hardlink protection", eqStr("1"), model.SevLow,
-			"Set fs.protected_hardlinks=1."},
-		{"fs.protected_symlinks", "Symlink protection", eqStr("1"), model.SevLow,
-			"Set fs.protected_symlinks=1."},
-		{"net.ipv4.conf.all.rp_filter", "Reverse-path filtering", geInt(1), model.SevLow,
-			"Set net.ipv4.conf.all.rp_filter=1 to mitigate IP spoofing."},
+		{"kernel.unprivileged_bpf_disabled", "eBPF non privilégié désactivé", geInt(1), model.SevMedium,
+			"Poser kernel.unprivileged_bpf_disabled=1."},
+		{"fs.protected_hardlinks", "Protection des liens physiques", eqStr("1"), model.SevLow,
+			"Poser fs.protected_hardlinks=1."},
+		{"fs.protected_symlinks", "Protection des liens symboliques", eqStr("1"), model.SevLow,
+			"Poser fs.protected_symlinks=1."},
+		{"net.ipv4.conf.all.rp_filter", "Filtrage par chemin inverse", geInt(1), model.SevLow,
+			"Poser net.ipv4.conf.all.rp_filter=1 pour limiter l'usurpation d'adresse IP."},
 	}
 
 	var out []model.Finding
@@ -119,12 +119,12 @@ func kernelHardeningCheck(ctx *engine.Context) []model.Finding {
 			continue
 		}
 		out = append(out, fail("KRN-"+strings.ToUpper(strings.ReplaceAll(r.key, ".", "-")),
-			"kernel", r.label+" is weak/disabled", r.sev,
+			"kernel", r.label+" : absent ou insuffisant", r.sev,
 			fmt.Sprintf("%s = %q", r.key, v), r.fix))
 	}
 	if len(out) == 0 && okCount > 0 {
 		out = append(out, pass("KRN-HARDENING", "kernel",
-			fmt.Sprintf("Kernel hardening sysctls all set (%d checked)", okCount)))
+			fmt.Sprintf("Durcissement du noyau complet (%d paramètres vérifiés)", okCount)))
 	}
 	return out
 }
@@ -136,15 +136,15 @@ func kernelTaintCheck(ctx *engine.Context) []model.Finding {
 	}
 	n, err := strconv.Atoi(v)
 	if err != nil || n == 0 {
-		return []model.Finding{pass("KRN-TAINT", "kernel", "Kernel is not tainted")}
+		return []model.Finding{pass("KRN-TAINT", "kernel", "Noyau non souillé")}
 	}
 	bits := map[int]string{
-		1 << 0:  "proprietary module loaded",
-		1 << 4:  "machine check",
-		1 << 9:  "kernel oops",
-		1 << 11: "firmware workaround",
-		1 << 12: "out-of-tree module loaded",
-		1 << 13: "unsigned module loaded",
+		1 << 0:  "module propriétaire chargé",
+		1 << 4:  "erreur matérielle signalée",
+		1 << 9:  "incident noyau",
+		1 << 11: "contournement de micrologiciel",
+		1 << 12: "module hors arborescence chargé",
+		1 << 13: "module non signé chargé",
 	}
 	var flags []string
 	sev := model.SevLow
@@ -158,9 +158,9 @@ func kernelTaintCheck(ctx *engine.Context) []model.Finding {
 	}
 	sort.Strings(flags)
 	return []model.Finding{fail("KRN-TAINT", "kernel",
-		"Kernel is tainted", sev,
-		fmt.Sprintf("tainted=%d (%s)", n, strings.Join(flags, ", ")),
-		"Out-of-tree or unsigned modules can hide malicious code; verify every non-distro module.",
+		"Noyau souillé", sev,
+		fmt.Sprintf("souillure=%d (%s)", n, strings.Join(flags, ", ")),
+		"Un module hors arborescence ou non signé peut dissimuler du code malveillant. Vérifier chaque module étranger à la distribution.",
 		flags...)}
 }
 
@@ -168,20 +168,20 @@ func ldPreloadCheck(ctx *engine.Context) []model.Finding {
 	var out []model.Finding
 	if fileExists("/etc/ld.so.preload") {
 		out = append(out, fail("KRN-LDPRELOAD", "kernel",
-			"/etc/ld.so.preload is present", model.SevHigh,
-			"Global library preloading is a classic userland-rootkit hook.",
-			"Confirm the listed libraries are legitimate; an unexpected entry means a likely rootkit.",
+			"/etc/ld.so.preload est présent", model.SevHigh,
+			"Le préchargement global de bibliothèques est un point d'accroche classique des rootkits en espace utilisateur.",
+			"Confirmer que chaque bibliothèque listée est légitime. Une entrée inattendue signale un rootkit probable.",
 			readLines("/etc/ld.so.preload")...))
 	}
 	for _, l := range readLines("/etc/environment") {
 		if strings.HasPrefix(strings.ToUpper(l), "LD_PRELOAD") {
 			out = append(out, fail("KRN-ENVPRELOAD", "kernel",
-				"LD_PRELOAD set globally in /etc/environment", model.SevHigh,
-				l, "Remove unless you know exactly why it is there."))
+				"LD_PRELOAD défini globalement dans /etc/environment", model.SevHigh,
+				l, "Retirer, sauf si vous savez exactement pourquoi cette valeur est là."))
 		}
 	}
 	if len(out) == 0 {
-		out = append(out, pass("KRN-LDPRELOAD", "kernel", "No global LD_PRELOAD hooks"))
+		out = append(out, pass("KRN-LDPRELOAD", "kernel", "Aucun préchargement global de bibliothèque"))
 	}
 	return out
 }
@@ -204,18 +204,18 @@ func accountsCheck(ctx *engine.Context) []model.Finding {
 	}
 	if len(uid0) > 0 {
 		out = append(out, fail("ACC-UID0", "accounts",
-			"Non-root account(s) with UID 0", model.SevCritical,
-			"A UID-0 account has full root privileges - a textbook backdoor.",
-			"Remove or fix the account immediately.", uid0...))
+			"Compte(s) autre(s) que root avec l'UID 0", model.SevCritical,
+			"Un compte d'UID 0 dispose des pleins privilèges root. C'est la porte dérobée du manuel.",
+			"Supprimer ou corriger le compte immédiatement.", uid0...))
 	} else {
-		out = append(out, pass("ACC-UID0", "accounts", "Only root has UID 0"))
+		out = append(out, pass("ACC-UID0", "accounts", "Seul root porte l'UID 0"))
 	}
 
 	// Empty passwords in /etc/shadow (root only).
 	shadow := readLines("/etc/shadow")
 	if len(shadow) == 0 {
 		out = append(out, info("ACC-SHADOW", "accounts",
-			"Could not read /etc/shadow", "Re-run as root to check for empty passwords."))
+			"/etc/shadow illisible", "Relancer en root pour vérifier les mots de passe vides."))
 	} else {
 		var empty []string
 		for _, l := range shadow {
@@ -226,11 +226,11 @@ func accountsCheck(ctx *engine.Context) []model.Finding {
 		}
 		if len(empty) > 0 {
 			out = append(out, fail("ACC-EMPTYPW", "accounts",
-				"Account(s) with an empty password", model.SevCritical,
-				"These accounts can be used to log in with no password.",
-				"Lock them (`passwd -l <user>`) or set a strong password.", empty...))
+				"Compte(s) sans mot de passe", model.SevCritical,
+				"Ces comptes permettent d'ouvrir une session sans aucun mot de passe.",
+				"Les verrouiller avec passwd -l <utilisateur>, ou leur poser un mot de passe solide.", empty...))
 		} else {
-			out = append(out, pass("ACC-EMPTYPW", "accounts", "No empty-password accounts"))
+			out = append(out, pass("ACC-EMPTYPW", "accounts", "Aucun compte sans mot de passe"))
 		}
 	}
 	return out
@@ -263,7 +263,7 @@ func sshdRunning() bool {
 func sshHardeningCheck(ctx *engine.Context) []model.Finding {
 	const cfg = "/etc/ssh/sshd_config"
 	if !fileExists(cfg) {
-		return []model.Finding{info("SSH-NONE", "ssh", "No sshd_config found", "OpenSSH server not installed.")}
+		return []model.Finding{info("SSH-NONE", "ssh", "Aucun sshd_config trouvé", "Le serveur OpenSSH n'est pas installé.")}
 	}
 	// Effective value = last non-comment occurrence.
 	vals := map[string]string{}
@@ -284,34 +284,34 @@ func sshHardeningCheck(ctx *engine.Context) []model.Finding {
 	var out []model.Finding
 	add := func(id, title string, sev model.Severity, detail, fix string) {
 		if !running {
-			out = append(out, info(id, "ssh", title+" (sshd not running)",
-				detail+" - the service is not currently running, so this is not an active exposure. "+fix))
+			out = append(out, info(id, "ssh", title+" (sshd à l'arrêt)",
+				detail+" - le service ne tourne pas actuellement, ce n'est donc pas une exposition active. "+fix))
 			return
 		}
 		out = append(out, fail(id, "ssh", title, sev, detail, fix))
 	}
 	if v := vals["permitrootlogin"]; v == "yes" {
-		add("SSH-ROOT", "SSH permits root login with password", model.SevHigh,
-			"PermitRootLogin yes", "Set `PermitRootLogin prohibit-password` or `no`.")
+		add("SSH-ROOT", "SSH autorise la connexion root par mot de passe", model.SevHigh,
+			"PermitRootLogin yes", "Poser PermitRootLogin prohibit-password, ou no.")
 	}
 	if v, ok := vals["passwordauthentication"]; !ok || v == "yes" {
-		add("SSH-PWAUTH", "SSH password authentication enabled", model.SevMedium,
-			"PasswordAuthentication is not disabled", "Prefer keys: set `PasswordAuthentication no`.")
+		add("SSH-PWAUTH", "Authentification SSH par mot de passe activée", model.SevMedium,
+			"PasswordAuthentication n'est pas désactivé", "Préférer les clés, en posant PasswordAuthentication no.")
 	}
 	if vals["permitemptypasswords"] == "yes" {
-		add("SSH-EMPTYPW", "SSH permits empty passwords", model.SevCritical,
-			"PermitEmptyPasswords yes", "Set `PermitEmptyPasswords no`.")
+		add("SSH-EMPTYPW", "SSH autorise les mots de passe vides", model.SevCritical,
+			"PermitEmptyPasswords yes", "Poser PermitEmptyPasswords no.")
 	}
 	if vals["protocol"] == "1" {
-		add("SSH-PROTO1", "SSH protocol 1 enabled", model.SevCritical,
-			"Protocol 1", "Remove the Protocol directive (only v2 is safe).")
+		add("SSH-PROTO1", "Protocole SSH 1 activé", model.SevCritical,
+			"Protocol 1", "Retirer la directive Protocol, seule la version 2 est sûre.")
 	}
 	if vals["x11forwarding"] == "yes" {
-		add("SSH-X11", "SSH X11 forwarding enabled", model.SevLow,
-			"X11Forwarding yes", "Disable unless required.")
+		add("SSH-X11", "Redirection X11 activée dans SSH", model.SevLow,
+			"X11Forwarding yes", "Désactiver sauf besoin avéré.")
 	}
 	if len(out) == 0 {
-		out = append(out, pass("SSH-OK", "ssh", "sshd_config passes hardening checks"))
+		out = append(out, pass("SSH-OK", "ssh", "sshd_config satisfait les contrôles de durcissement"))
 	}
 	return out
 }
@@ -331,7 +331,7 @@ func suspiciousLocation(path string) bool {
 
 func suidCheck(ctx *engine.Context) []model.Finding {
 	if ctx.Config.Quick {
-		return []model.Finding{info("SUID-SKIP", "disk", "SUID scan skipped (quick mode)", "")}
+		return []model.Finding{info("SUID-SKIP", "disk", "Recherche des binaires SUID ignorée (mode rapide)", "")}
 	}
 	var suspicious, all []string
 	walkLimited(scanRoots(ctx), 400000, func(path string, d fs.DirEntry) {
@@ -355,21 +355,21 @@ func suidCheck(ctx *engine.Context) []model.Finding {
 	var out []model.Finding
 	if len(suspicious) > 0 {
 		out = append(out, fail("SUID-SUSP", "disk",
-			"SUID/SGID binary in a writable/temp location", model.SevHigh,
-			"SUID binaries here are a common privilege-escalation backdoor.",
-			"Investigate each; remove the SUID bit (`chmod -s`) if not required.",
+			"Binaire SUID/SGID dans un emplacement temporaire ou modifiable", model.SevHigh,
+			"Un binaire SUID à cet endroit est une voie classique d'élévation de privilèges.",
+			"Examiner chacun, et retirer le bit SUID avec chmod -s s'il n'est pas nécessaire.",
 			capEvidence(suspicious)...))
 	}
 	out = append(out, info("SUID-INV", "disk",
-		fmt.Sprintf("%d SUID/SGID binaries found", len(all)),
-		"Review the inventory and compare against a known-good host.",
+		fmt.Sprintf("%d binaire(s) SUID/SGID trouvé(s)", len(all)),
+		"Passer l'inventaire en revue et le comparer à une machine de référence.",
 		capEvidence(all)...))
 	return out
 }
 
 func worldWritableCheck(ctx *engine.Context) []model.Finding {
 	if ctx.Config.Quick {
-		return []model.Finding{info("WW-SKIP", "disk", "World-writable scan skipped (quick mode)", "")}
+		return []model.Finding{info("WW-SKIP", "disk", "Recherche des fichiers modifiables par tous ignorée (mode rapide)", "")}
 	}
 	systemDirs := []string{"/etc", "/bin", "/sbin", "/usr/bin", "/usr/sbin", "/usr/lib", "/boot"}
 	var wwSystem, wwDirNoSticky []string
@@ -402,18 +402,18 @@ func worldWritableCheck(ctx *engine.Context) []model.Finding {
 	var out []model.Finding
 	if len(wwSystem) > 0 {
 		out = append(out, fail("WW-SYSTEM", "disk",
-			"World-writable file(s) in a system directory", model.SevHigh,
-			"Any local user can modify these; a perfect persistence/tamper vector.",
-			"Tighten permissions (`chmod o-w`).", capEvidence(wwSystem)...))
+			"Fichier(s) modifiable(s) par tous dans un répertoire système", model.SevHigh,
+			"N'importe quel utilisateur local peut les modifier, ce qui en fait un vecteur idéal de persistance et d'altération.",
+			"Resserrer les permissions avec chmod o-w.", capEvidence(wwSystem)...))
 	}
 	if len(wwDirNoSticky) > 0 {
 		out = append(out, fail("WW-DIR", "disk",
-			"World-writable directory without sticky bit", model.SevLow,
-			"Users can delete/rename each other's files here.",
-			"Add the sticky bit (`chmod +t`) or restrict write access.", capEvidence(wwDirNoSticky)...))
+			"Répertoire modifiable par tous sans bit collant", model.SevLow,
+			"Les utilisateurs peuvent y supprimer ou renommer les fichiers des autres.",
+			"Poser le bit collant avec chmod +t, ou restreindre l'écriture.", capEvidence(wwDirNoSticky)...))
 	}
 	if len(out) == 0 {
-		out = append(out, pass("WW-OK", "disk", "No dangerous world-writable entries found"))
+		out = append(out, pass("WW-OK", "disk", "Aucune entrée modifiable par tous dangereuse"))
 	}
 	return out
 }
@@ -439,20 +439,20 @@ func mountFlagsCheck(ctx *engine.Context) []model.Finding {
 		}
 		if found == nil {
 			out = append(out, fail("MNT-"+strings.ToUpper(sanitize(target)), "disk",
-				target+" is not a separate mount", model.SevLow,
-				"Cannot apply noexec/nosuid to "+target+".",
-				"Consider a dedicated mount with noexec,nosuid,nodev."))
+				target+" n'est pas un montage séparé", model.SevLow,
+				"Impossible d'appliquer noexec ou nosuid à "+target+".",
+				"Envisager un montage dédié avec noexec, nosuid et nodev."))
 			continue
 		}
 		if !strings.Contains(found.opts, "noexec") {
 			out = append(out, fail("MNT-NOEXEC-"+strings.ToUpper(sanitize(target)), "disk",
-				target+" is mounted without noexec", model.SevMedium,
-				"opts: "+found.opts,
-				"Remount "+target+" with noexec to block execution of dropped payloads."))
+				target+" est monté sans noexec", model.SevMedium,
+				"options : "+found.opts,
+				"Remonter "+target+" avec noexec pour empêcher l'exécution de charges déposées."))
 		}
 	}
 	if len(out) == 0 {
-		out = append(out, pass("MNT-OK", "disk", "Temp filesystems mounted with safe flags"))
+		out = append(out, pass("MNT-OK", "disk", "Systèmes de fichiers temporaires montés avec des options sûres"))
 	}
 	return out
 }
@@ -489,12 +489,12 @@ func cronCheck(ctx *engine.Context) []model.Finding {
 	var out []model.Finding
 	if len(suspicious) > 0 {
 		out = append(out, fail("CRON-SUSP", "persistence",
-			"Suspicious cron entry(ies)", model.SevHigh,
-			"Cron jobs downloading or executing from temp dirs are a common persistence mechanism.",
-			"Review each line; remove anything you did not create.", capEvidence(suspicious)...))
+			"Entrée(s) cron suspecte(s)", model.SevHigh,
+			"Une tâche cron qui télécharge ou exécute depuis un répertoire temporaire est un moyen de persistance courant.",
+			"Examiner chaque ligne, et retirer ce que vous n'avez pas créé.", capEvidence(suspicious)...))
 	} else {
 		out = append(out, pass("CRON-OK", "persistence",
-			fmt.Sprintf("No suspicious cron entries (%d scanned)", total)))
+			fmt.Sprintf("Aucune entrée cron suspecte (%d examinées)", total)))
 	}
 	return out
 }
@@ -523,12 +523,12 @@ func systemdCheck(ctx *engine.Context) []model.Finding {
 	var out []model.Finding
 	if len(suspicious) > 0 {
 		out = append(out, fail("SVC-SUSP", "persistence",
-			"Suspicious systemd service(s)", model.SevHigh,
-			"A service whose ExecStart runs from a temp/writable path is a strong persistence indicator.",
-			"Inspect the unit files and disable anything unexpected.", capEvidence(suspicious)...))
+			"Service(s) systemd suspect(s)", model.SevHigh,
+			"Un service dont ExecStart pointe vers un chemin temporaire ou modifiable est un indice fort de persistance.",
+			"Inspecter les fichiers d'unité et désactiver tout ce qui est inattendu.", capEvidence(suspicious)...))
 	} else {
 		out = append(out, pass("SVC-OK", "persistence",
-			fmt.Sprintf("No suspicious systemd services (%d scanned)", total)))
+			fmt.Sprintf("Aucun service systemd suspect (%d examinés)", total)))
 	}
 	return out
 }
@@ -613,8 +613,8 @@ func portsCheck(ctx *engine.Context) []model.Finding {
 
 	if !okTCP4 && !okTCP6 {
 		return []model.Finding{errFinding("NET-LISTEN", "network",
-			"Could not enumerate listening sockets",
-			"Neither /proc/net/tcp nor /proc/net/tcp6 could be read. Announcing zero open ports here would be a false all-clear, so nothing is claimed; re-run with sufficient privileges.")}
+			"Sockets en écoute non énumérables",
+			"Ni /proc/net/tcp ni /proc/net/tcp6 n'ont pu être lus. Annoncer zéro port ouvert serait une fausse assurance, donc rien n'est affirmé. Relancer avec des privilèges suffisants.")}
 	}
 
 	var ls []listener
@@ -627,20 +627,20 @@ func portsCheck(ctx *engine.Context) []model.Finding {
 		sev   model.Severity
 		label string
 	}{
-		"tcp/23":    {model.SevHigh, "telnet (cleartext)"},
-		"tcp/21":    {model.SevMedium, "ftp (cleartext)"},
+		"tcp/23":    {model.SevHigh, "telnet, en clair"},
+		"tcp/21":    {model.SevMedium, "ftp, en clair"},
 		"tcp/513":   {model.SevMedium, "rlogin"},
 		"tcp/514":   {model.SevMedium, "rsh"},
-		"tcp/6379":  {model.SevHigh, "redis (often unauthenticated)"},
+		"tcp/6379":  {model.SevHigh, "redis, souvent sans authentification"},
 		"tcp/27017": {model.SevHigh, "mongodb"},
 		"tcp/9200":  {model.SevMedium, "elasticsearch"},
-		"tcp/3306":  {model.SevMedium, "mysql exposed"},
-		"tcp/5432":  {model.SevMedium, "postgres exposed"},
-		"udp/69":    {model.SevHigh, "tftp (no authentication)"},
-		"udp/161":   {model.SevMedium, "snmp (often default community strings)"},
-		"udp/623":   {model.SevHigh, "ipmi (frequently unpatched)"},
-		"udp/137":   {model.SevMedium, "netbios name service"},
-		"udp/138":   {model.SevMedium, "netbios datagram service"},
+		"tcp/3306":  {model.SevMedium, "mysql exposé"},
+		"tcp/5432":  {model.SevMedium, "postgres exposé"},
+		"udp/69":    {model.SevHigh, "tftp, sans authentification"},
+		"udp/161":   {model.SevMedium, "snmp, souvent avec les communautés par défaut"},
+		"udp/623":   {model.SevHigh, "ipmi, rarement mis à jour"},
+		"udp/137":   {model.SevMedium, "service de noms netbios"},
+		"udp/138":   {model.SevMedium, "service de datagrammes netbios"},
 		"udp/111":   {model.SevMedium, "rpcbind"},
 	}
 
@@ -648,9 +648,9 @@ func portsCheck(ctx *engine.Context) []model.Finding {
 	seen := map[string]bool{}
 	var inventory []string
 	for _, l := range ls {
-		scope := "loopback/other"
+		scope := "boucle locale ou autre"
 		if l.allIf {
-			scope = "all interfaces"
+			scope = "toutes interfaces"
 		}
 		inventory = append(inventory, fmt.Sprintf("%s/%d (%s)", l.proto, l.port, scope))
 
@@ -659,15 +659,15 @@ func portsCheck(ctx *engine.Context) []model.Finding {
 			seen[key] = true
 			out = append(out, fail(
 				"NET-PORT-"+strings.ToUpper(family(l.proto))+"-"+strconv.Itoa(l.port), "network",
-				fmt.Sprintf("Risky service on %s port %d exposed on all interfaces", family(l.proto), l.port),
-				r.sev, r.label, "Bind to localhost, add authentication, or firewall the port."))
+				fmt.Sprintf("Service à risque sur le port %s %d, exposé sur toutes les interfaces", family(l.proto), l.port),
+				r.sev, r.label, "Restreindre l'écoute à la boucle locale, ajouter une authentification, ou filtrer le port."))
 		}
 	}
 	sort.Strings(inventory)
 	inventory = uniqueStrings(inventory)
 	out = append(out, info("NET-LISTEN", "network",
-		fmt.Sprintf("%d listening socket(s), TCP and UDP", len(inventory)),
-		"Every open port is attack surface - confirm each is expected.", capEvidence(inventory)...))
+		fmt.Sprintf("%d socket(s) en écoute, TCP et UDP", len(inventory)),
+		"Chaque port ouvert est une surface d'attaque. Vérifier que chacun est attendu.", capEvidence(inventory)...))
 	return out
 }
 
@@ -676,7 +676,7 @@ func firewallCheck(ctx *engine.Context) []model.Finding {
 	if cmdAvailable("ufw") {
 		if out, err := runCmd(4*time.Second, "ufw", "status"); err == nil {
 			if strings.Contains(strings.ToLower(out), "status: active") {
-				return []model.Finding{pass("FW-UFW", "network", "ufw firewall is active")}
+				return []model.Finding{pass("FW-UFW", "network", "Le pare-feu ufw est actif")}
 			}
 		}
 	}
@@ -684,7 +684,7 @@ func firewallCheck(ctx *engine.Context) []model.Finding {
 	if cmdAvailable("nft") {
 		if out, err := runCmd(4*time.Second, "nft", "list", "ruleset"); err == nil && strings.TrimSpace(out) != "" {
 			if containsAny(out, "drop", "reject") {
-				return []model.Finding{pass("FW-NFT", "network", "nftables ruleset present")}
+				return []model.Finding{pass("FW-NFT", "network", "Un jeu de règles nftables est en place")}
 			}
 		}
 	}
@@ -692,17 +692,17 @@ func firewallCheck(ctx *engine.Context) []model.Finding {
 	if cmdAvailable("iptables") {
 		if out, err := runCmd(4*time.Second, "iptables", "-S"); err == nil {
 			if containsAny(out, "-j DROP", "-j REJECT") {
-				return []model.Finding{pass("FW-IPT", "network", "iptables filtering rules present")}
+				return []model.Finding{pass("FW-IPT", "network", "Des règles de filtrage iptables sont en place")}
 			}
 			return []model.Finding{fail("FW-NONE", "network",
-				"No host firewall rules detected", model.SevMedium,
-				"iptables shows only default-accept policies.",
-				"Enable ufw/nftables or add iptables rules to limit inbound exposure.")}
+				"Aucune règle de pare-feu local détectée", model.SevMedium,
+				"iptables n'affiche que des politiques par défaut en acceptation.",
+				"Activer ufw ou nftables, ou ajouter des règles iptables pour limiter l'exposition entrante.")}
 		}
 	}
 	return []model.Finding{info("FW-UNKNOWN", "network",
-		"Could not determine firewall state",
-		"Re-run as root; no usable firewall tool responded.")}
+		"État du pare-feu indéterminable",
+		"Relancer en root. Aucun outil de pare-feu exploitable n'a répondu.")}
 }
 
 // --- process / rootkit heuristics --------------------------------------------
@@ -717,7 +717,7 @@ var systemBinaryPrefixes = []string{
 func processCheck(ctx *engine.Context) []model.Finding {
 	entries, err := os.ReadDir("/proc")
 	if err != nil {
-		return []model.Finding{errFinding("PROC-READ", "process", "Cannot read /proc", err.Error())}
+		return []model.Finding{errFinding("PROC-READ", "process", "/proc illisible", err.Error())}
 	}
 	var memfd, deletedSuspect, deletedSystem, tempExec []string
 	for _, e := range entries {
@@ -757,32 +757,32 @@ func processCheck(ctx *engine.Context) []model.Finding {
 	var out []model.Finding
 	if len(memfd) > 0 {
 		out = append(out, fail("PROC-MEMFD", "process",
-			"Process(es) running from an anonymous memory file", model.SevCritical,
-			"A memfd-backed executable never existed on disk - the signature of fileless execution.",
-			"Investigate now: `ls -l /proc/<pid>/exe`, `cat /proc/<pid>/maps`, `ss -tnp | grep <pid>`.",
+			"Processus s'exécutant depuis un fichier mémoire anonyme", model.SevCritical,
+			"Un exécutable adossé à memfd n'a jamais existé sur le disque. C'est la signature d'une exécution sans fichier.",
+			"Investiguer immédiatement avec ls -l /proc/<pid>/exe, cat /proc/<pid>/maps et ss -tnp.",
 			capEvidence(memfd)...))
 	}
 	if len(deletedSuspect) > 0 {
 		out = append(out, fail("PROC-DELETED", "process",
-			"Process(es) running from a deleted non-system binary", model.SevHigh,
-			"The image was removed from disk and did not come from a package-managed location.",
-			"Inspect these PIDs (`ls -l /proc/<pid>/exe`, `cat /proc/<pid>/maps`) before killing them.",
+			"Processus s'exécutant depuis un binaire supprimé hors système", model.SevHigh,
+			"L'image a été retirée du disque et ne provenait pas d'un emplacement géré par le gestionnaire de paquets.",
+			"Inspecter ces processus avec ls -l /proc/<pid>/exe et cat /proc/<pid>/maps avant de les arrêter.",
 			capEvidence(deletedSuspect)...))
 	}
 	if len(tempExec) > 0 {
 		out = append(out, fail("PROC-TEMPEXEC", "process",
-			"Process(es) executing from a temp directory", model.SevHigh,
-			"Legitimate services rarely run from /tmp or /dev/shm.",
-			"Identify the parent and origin of each process.", capEvidence(tempExec)...))
+			"Processus s'exécutant depuis un répertoire temporaire", model.SevHigh,
+			"Un service légitime tourne rarement depuis /tmp ou /dev/shm.",
+			"Identifier le parent et l'origine de chaque processus.", capEvidence(tempExec)...))
 	}
 	if len(deletedSystem) > 0 {
 		out = append(out, info("PROC-UPGRADED", "process",
-			fmt.Sprintf("%d process(es) still running a replaced system binary", len(deletedSystem)),
-			"Their on-disk image was replaced by a package upgrade - expected on a rolling distribution. Restart the services (or reboot) so they run the patched code.",
+			fmt.Sprintf("%d processus exécutant encore un binaire système remplacé", len(deletedSystem)),
+			"Leur image sur disque a été remplacée par une mise à jour de paquet, ce qui est attendu sur une distribution en flux continu. Redémarrer les services, ou la machine, pour qu'ils exécutent le code corrigé.",
 			capEvidence(deletedSystem)...))
 	}
 	if len(out) == 0 {
-		out = append(out, pass("PROC-OK", "process", "No obvious process anomalies"))
+		out = append(out, pass("PROC-OK", "process", "Aucune anomalie de processus manifeste"))
 	}
 	return out
 }
