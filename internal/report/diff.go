@@ -136,7 +136,7 @@ func Compare(oldRep, newRep model.Report) Diff {
 		case nf.Severity > of.Severity:
 			d.Changes = append(d.Changes, Change{
 				Kind: KindWorse, ID: nf.ID, Category: nf.Category,
-				Title:    fmt.Sprintf("%s (%s \u2192 %s)", nf.Title, of.Severity, nf.Severity),
+				Title:    fmt.Sprintf("%s (%s -> %s)", nf.Title, of.Severity, nf.Severity),
 				Severity: nf.Severity, Alarming: true,
 			})
 		case nf.Severity < of.Severity:

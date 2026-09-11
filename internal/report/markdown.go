@@ -86,7 +86,7 @@ func Markdown(w io.Writer, rep model.Report) {
 				for _, r := range f.References {
 					refs = append(refs, fmt.Sprintf("%s `%s` (%s)", r.Framework, r.ID, r.Title))
 				}
-				fmt.Fprintf(w, "- **References:** %s\n", strings.Join(refs, " \u00b7 "))
+				fmt.Fprintf(w, "- **References:** %s\n", strings.Join(refs, " - "))
 			}
 			if len(f.Evidence) > 0 {
 				// Markdown is a document rather than a screen, so the full

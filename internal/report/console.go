@@ -127,14 +127,14 @@ func printFinding(w io.Writer, p palette, f model.Finding) {
 	}
 	shown, hidden := displayEvidence(f.Evidence)
 	for _, e := range shown {
-		fmt.Fprintf(w, "        %s\u00b7 %s%s\n", p.gray, e, p.reset)
+		fmt.Fprintf(w, "        %s- %s%s\n", p.gray, e, p.reset)
 	}
 	if hidden > 0 {
-		fmt.Fprintf(w, "        %s\u00b7 et %d de plus, voir le rapport JSON ou Markdown%s\n",
+		fmt.Fprintf(w, "        %s- et %d de plus, voir le rapport JSON ou Markdown%s\n",
 			p.gray, hidden, p.reset)
 	}
 	if f.Remediation != "" {
-		fmt.Fprintf(w, "        %s\u2192 %s%s\n", p.cyan, f.Remediation, p.reset)
+		fmt.Fprintf(w, "        %s-> %s%s\n", p.cyan, f.Remediation, p.reset)
 	}
 	if f.Superseded != "" {
 		fmt.Fprintf(w, "        %scompté une seule fois, via %s%s\n", p.gray, f.Superseded, p.reset)
