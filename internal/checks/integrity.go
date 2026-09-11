@@ -77,25 +77,40 @@ func WriteBaseline(path string, paths []string) (int, error) {
 func classifyChanged(changed []string) []model.Finding {
 	const cat = "integrity"
 
-	nonVerifiable := func() []model.Finding {
-		return []model.Finding{fail("INTEG-CHANGED", cat,
-			fmt.Sprintf("%d fichier(s) critique(s) modifié(s) depuis la référence", len(changed)),
-			model.SevHigh,
-			"Un binaire ou une configuration surveillée diffère de la référence de confiance, et la signature de ces fichiers n'a pas pu être vérifiée. C'est attendu après une mise à jour, mais c'est aussi le signe classique d'une altération.",
-			"Comparer aux empreintes publiées par l'éditeur avant de conclure. Sur une distribution Linux, argus scan --verify-packages compare chaque fichier installé aux empreintes de la distribution.",
-			changed...)}
+	const (
+		detailNonVerifie = "Un binaire ou une configuration surveillée diffère de la référence de confiance, et la signature de ces fichiers n'a pas pu être vérifiée. C'est attendu après une mise à jour, mais c'est aussi le signe classique d'une altération."
+		fixNonVerifie    = "Comparer aux empreintes publiées par l'éditeur avant de conclure. Sur une distribution Linux, argus scan --verify-packages compare chaque fichier installé aux empreintes de la distribution."
+	)
+
+	changement := func(paths []string, detail, fix string) model.Finding {
+		return fail("INTEG-CHANGED", cat,
+			fmt.Sprintf("%d fichier(s) critique(s) modifié(s) depuis la référence", len(paths)),
+			model.SevHigh, detail, fix, capEvidence(paths)...)
 	}
 
 	if !canVerifySignatures() {
-		return nonVerifiable()
+		return []model.Finding{changement(changed, detailNonVerifie, fixNonVerifie)}
 	}
-	signed, ok := verifySignatures(changed)
+
+	// Seuls les exécutables peuvent porter une signature. Les autres fichiers
+	// sont mis de côté avant toute vérification, sinon leur absence de
+	// signature se lirait comme une altération.
+	var signables, configurations []string
+	for _, p := range changed {
+		if isSignableImage(p) {
+			signables = append(signables, p)
+			continue
+		}
+		configurations = append(configurations, p)
+	}
+
+	signed, ok := verifySignatures(signables)
 	if !ok {
-		return nonVerifiable()
+		return []model.Finding{changement(changed, detailNonVerifie, fixNonVerifie)}
 	}
 
 	var tampered, updated []string
-	for _, p := range changed {
+	for _, p := range signables {
 		if authority, isSigned := signed[strings.ToLower(p)]; isSigned {
 			updated = append(updated, p+"  ["+authority+"]")
 			continue
@@ -106,21 +121,69 @@ func classifyChanged(changed []string) []model.Finding {
 	var out []model.Finding
 	if len(tampered) > 0 {
 		out = append(out, fail("INTEG-TAMPERED", cat,
-			fmt.Sprintf("%d fichier(s) critique(s) modifié(s) et non signé(s)", len(tampered)),
+			fmt.Sprintf("%d exécutable(s) critique(s) modifié(s) et non signé(s)", len(tampered)),
 			model.SevCritical,
-			"Ces fichiers diffèrent de la référence et ne portent aucune signature valide. Un éditeur signe ce qu'il livre: un binaire système modifié sans signature n'a pas été remplacé par une mise à jour.",
+			"Ces exécutables diffèrent de la référence et ne portent aucune signature valide. Un éditeur signe ce qu'il livre: un binaire système modifié sans signature n'a pas été remplacé par une mise à jour.",
 			"Traiter la machine comme compromise. Ne pas reprendre la référence avant d'avoir établi d'où vient le remplacement.",
 			capEvidence(tampered)...))
 	}
 	if len(updated) > 0 {
 		out = append(out, fail("INTEG-UPDATED", cat,
-			fmt.Sprintf("%d fichier(s) critique(s) modifié(s) par une mise à jour signée", len(updated)),
+			fmt.Sprintf("%d exécutable(s) critique(s) modifié(s) par une mise à jour signée", len(updated)),
 			model.SevMedium,
-			"Ces fichiers diffèrent de la référence mais portent une signature d'éditeur valide, ce qui correspond à une mise à jour. La référence est donc périmée et ne protège plus.",
+			"Ces exécutables diffèrent de la référence mais portent une signature d'éditeur valide, ce qui correspond à une mise à jour. La référence est donc périmée et ne protège plus.",
 			"Confirmer qu'une mise à jour a bien eu lieu, puis reprendre la référence avec argus baseline.",
 			capEvidence(updated)...))
 	}
+	if len(configurations) > 0 {
+		out = append(out, changement(configurations,
+			"Ces fichiers diffèrent de la référence. Ce sont des fichiers de configuration, qui ne portent aucune signature: la question de l'éditeur ne s'applique pas à eux, et seul leur contenu peut trancher.",
+			"Comparer chaque fichier à sa version attendue. Une ligne ajoutée au fichier hosts, une règle sudo élargie ou une directive sshd relâchée sont des altérations discrètes et durables, qu'aucune signature ne révélerait."))
+	}
 	return out
+}
+
+// isSignableImage indique si le fichier porte un format d'image exécutable,
+// c'est-à-dire s'il peut contenir une signature.
+//
+// La distinction compte plus qu'il n'y paraît. Une référence d'intégrité
+// surveille des binaires et des fichiers de configuration côte à côte, et un
+// fichier de configuration n'a jamais porté de signature. Juger hosts ou
+// sudoers sur ce critère lèverait une alerte critique sur chaque machine dont
+// ces fichiers ont été édités un jour, ce qui est le moyen le plus sûr
+// d'apprendre à quelqu'un à ignorer l'outil.
+//
+// La détection lit les premiers octets plutôt que l'extension, parce qu'un
+// binaire Unix n'en a pas: /usr/bin/sudo est autant un exécutable que
+// lsass.exe.
+func isSignableImage(path string) bool {
+	f, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+
+	var head [4]byte
+	if _, err := io.ReadFull(f, head[:]); err != nil {
+		return false
+	}
+
+	// PE, le format des exécutables Windows.
+	if head[0] == 'M' && head[1] == 'Z' {
+		return true
+	}
+	// ELF, celui de Linux et des BSD.
+	if head[0] == 0x7F && head[1] == 'E' && head[2] == 'L' && head[3] == 'F' {
+		return true
+	}
+	// Mach-O, celui de macOS, dans ses variantes d'ordre d'octets, plus
+	// l'archive universelle qui regroupe plusieurs architectures.
+	magic := uint32(head[0])<<24 | uint32(head[1])<<16 | uint32(head[2])<<8 | uint32(head[3])
+	switch magic {
+	case 0xFEEDFACE, 0xFEEDFACF, 0xCEFAEDFE, 0xCFFAEDFE, 0xCAFEBABE, 0xBEBAFECA:
+		return true
+	}
+	return false
 }
 
 // integrityCheck compares current hashes against the stored baseline.
