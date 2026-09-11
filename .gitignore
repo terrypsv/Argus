@@ -1,7 +1,7 @@
 ﻿# Binaries
 argus
 argus.exe
-argus-*
+/argus-*
 /dist/
 *.exe
 *.out
