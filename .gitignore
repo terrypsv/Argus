@@ -37,3 +37,9 @@ argus.exe
 argus_linux
 argus_darwin
 *.exe
+
+# console: binaires et sortie de la CLI Wails
+cmd/argus-console/argus-console.exe
+cmd/argus-console/argus.exe
+cmd/argus-console/build/bin/
+cmd/argus-console/frontend/wailsjs/
