@@ -1,0 +1,15 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "argus-console",
+  "outputfilename": "argus-console",
+  "frontend:dir": "frontend",
+  "author": {
+    "name": "Terry Passave"
+  },
+  "info": {
+    "companyName": "Steelveil",
+    "productName": "Console Argus",
+    "productIdentifier": "com.steelveil.argus.console",
+    "copyright": "Copyright (c) 2026 Terry Passave. Tous droits reserves."
+  }
+}
