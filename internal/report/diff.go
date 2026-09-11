@@ -231,33 +231,33 @@ func deltaStr(before, after int) string {
 func ConsoleDiff(w io.Writer, d Diff, color bool) {
 	p := newPalette(color)
 
-	fmt.Fprintf(w, "\n%s%s  ARGUS  scan comparison%s\n", p.bold, p.cyan, p.reset)
+	fmt.Fprintf(w, "\n%s%s  ARGUS  comparaison d'analyses%s\n", p.bold, p.cyan, p.reset)
 	fmt.Fprintf(w, "%s\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500%s\n", p.gray, p.reset)
-	fmt.Fprintf(w, "Host      : %s\n", d.New.Host.Hostname)
-	fmt.Fprintf(w, "Before    : %s\n", d.Old.FinishedAt.Format("2006-01-02 15:04:05"))
-	fmt.Fprintf(w, "After     : %s\n\n", d.New.FinishedAt.Format("2006-01-02 15:04:05"))
+	fmt.Fprintf(w, "Machine   : %s\n", d.New.Host.Hostname)
+	fmt.Fprintf(w, "Avant     : %s\n", d.Old.FinishedAt.Format("2006-01-02 15:04:05"))
+	fmt.Fprintf(w, "Après     : %s\n\n", d.New.FinishedAt.Format("2006-01-02 15:04:05"))
 
-	fmt.Fprintf(w, "  HARDENING  %3d -> %3d  (%s)\n",
+	fmt.Fprintf(w, "  DURCISSEMENT  %3d -> %3d  (%s)\n",
 		d.Old.Hardening.Score, d.New.Hardening.Score,
 		deltaStr(d.Old.Hardening.Score, d.New.Hardening.Score))
-	fmt.Fprintf(w, "  INTEGRITY  %3d -> %3d  (%s)\n\n",
+	fmt.Fprintf(w, "  INTÉGRITÉ     %3d -> %3d  (%s)\n\n",
 		d.Old.Integrity.Score, d.New.Integrity.Score,
 		deltaStr(d.Old.Integrity.Score, d.New.Integrity.Score))
 
 	if len(d.Changes) == 0 {
-		fmt.Fprintf(w, "%s  Nothing changed between the two scans.%s\n", p.green, p.reset)
+		fmt.Fprintf(w, "%s  Rien n'a changé entre les deux analyses.%s\n", p.green, p.reset)
 		return
 	}
 
 	sections := []struct {
 		kind, label, colour string
 	}{
-		{KindNew, "NEW - problems that were not there before", p.red},
-		{KindWorse, "WORSENED", p.red},
-		{KindAppeared, "APPEARED - new entries in a watched inventory", p.yellow},
-		{KindDisappeared, "GONE - entries that left a watched inventory", p.gray},
-		{KindBetter, "IMPROVED", p.green},
-		{KindResolved, "RESOLVED", p.green},
+		{KindNew, "NOUVEAU - problèmes absents de l'analyse précédente", p.red},
+		{KindWorse, "AGGRAVÉ", p.red},
+		{KindAppeared, "APPARU - nouvelles entrées dans un inventaire surveillé", p.yellow},
+		{KindDisappeared, "DISPARU - entrées sorties d'un inventaire surveillé", p.gray},
+		{KindBetter, "AMÉLIORÉ", p.green},
+		{KindResolved, "RÉSOLU", p.green},
 	}
 
 	for _, s := range sections {
@@ -282,10 +282,10 @@ func ConsoleDiff(w io.Writer, d Diff, color bool) {
 		fmt.Fprintln(w)
 	}
 
-	fmt.Fprintf(w, "%s%d change(s), %d requiring attention.%s\n",
+	fmt.Fprintf(w, "%s%d changement(s), dont %d méritant attention.%s\n",
 		p.gray, len(d.Changes), d.Alarming, p.reset)
 	if d.Alarming > 0 {
-		fmt.Fprintf(w, "%sA new listening port, autostart entry or SUID binary is how an intrusion first shows.%s\n",
+		fmt.Fprintf(w, "%sUn nouveau port en écoute, une entrée de démarrage ou un binaire SUID sont la façon dont une intrusion se voit en premier.%s\n",
 			p.gray, p.reset)
 	}
 }
