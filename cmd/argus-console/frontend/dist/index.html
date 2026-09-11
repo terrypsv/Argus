@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Console Argus</title>
+<style>
+  /* La police est celle du systeme plutot qu'une police chargee depuis le
+     reseau: une application qui va chercher une police en ligne au demarrage
+     est une application qui ne fonctionne pas hors connexion, ce qui serait
+     absurde pour un outil qui promet de ne rien contacter. */
+  :root{
+    --bg:#08090B;--panel:#0B0D10;--panel2:#101318;--line:#171A1F;--line2:#242931;
+    --steel:#5D6A7A;--dim:#39414C;--pale:#E8EDF2;--muted:#68717D;
+    --crit:#C4705E;--med:#C39A45;--ok:#6FA97F;
+    --mono:'Cascadia Mono','Consolas','JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--pale);font-family:var(--mono);
+       font-size:13px;overflow:hidden;user-select:none}
+  ::-webkit-scrollbar{width:9px}
+  ::-webkit-scrollbar-thumb{background:var(--line2)}
+
+  .app{height:100vh;display:flex;flex-direction:column}
+
+  .chrome{height:40px;flex:0 0 40px;display:flex;align-items:center;gap:14px;
+          padding:0 16px;border-bottom:1px solid var(--line);
+          --wails-draggable:drag}
+  .mk{font-weight:700;font-size:14px;letter-spacing:-.06em;color:var(--steel)}
+  .mk i{font-style:normal;color:var(--pale)}
+  .ttl{font-size:9.5px;letter-spacing:.22em;color:var(--dim)}
+  .host{margin-left:auto;font-size:10px;color:var(--muted)}
+  .host b{color:var(--pale);font-weight:400}
+
+  .body{flex:1;display:flex;min-height:0}
+
+  .nav{flex:0 0 190px;border-right:1px solid var(--line);padding:20px 0;
+       display:flex;flex-direction:column}
+  .nav .item{padding:11px 20px;font-size:11px;letter-spacing:.1em;color:var(--dim);
+             cursor:pointer;border-left:2px solid transparent;
+             display:flex;align-items:center;gap:10px}
+  .nav .item:hover{color:var(--muted)}
+  .nav .item.on{color:var(--pale);border-left-color:var(--pale);background:#0D1014}
+  .nav .badge{margin-left:auto;font-size:9px;padding:1px 6px;border:1px solid var(--line2);
+              color:var(--muted)}
+  .nav .badge.alerte{color:var(--crit);border-color:var(--crit)}
+  .nav .sep{height:1px;background:var(--line);margin:14px 20px}
+  .nav .foot{margin-top:auto;padding:0 20px;font-size:9px;color:#252B33;line-height:2}
+
+  .vue{flex:1;padding:26px 30px;overflow:auto;min-width:0;user-select:text}
+  h2{font-size:18px;font-weight:500;letter-spacing:-.02em;margin-bottom:5px}
+  .sub{font-size:11px;color:var(--muted);margin-bottom:22px;line-height:1.8}
+
+  .jauges{display:flex;gap:22px;margin-bottom:24px}
+  .jauge{flex:1;border:1px solid var(--line);background:var(--panel);padding:18px 20px}
+  .jauge .lbl{font-size:9.5px;letter-spacing:.18em;color:var(--muted)}
+  .jauge .expl{font-size:10px;color:var(--muted);line-height:1.7;margin-top:7px;
+               min-height:34px}
+  .jauge .val{font-size:38px;font-weight:700;letter-spacing:-.04em;margin:10px 0 2px;
+              display:flex;align-items:baseline;gap:10px}
+  .jauge .val small{font-size:13px;font-weight:400;color:var(--muted);letter-spacing:0}
+  .jauge .mention{font-size:15px;color:var(--muted)}
+  .bar{height:4px;background:var(--line2);margin-top:12px;overflow:hidden}
+  .bar i{display:block;height:100%}
+  .jauge .perte{margin-top:11px;font-size:9.5px;color:var(--dim);line-height:2;
+                min-height:19px}
+  .c-crit{color:var(--crit)} .c-med{color:var(--med)} .c-ok{color:var(--ok)}
+  .bg-crit{background:var(--crit)} .bg-med{background:var(--med)} .bg-ok{background:var(--ok)}
+
+  .verdict{border-left:2px solid var(--med);padding:13px 16px;background:var(--panel);
+           font-size:12px;line-height:1.85;margin-bottom:22px}
+  /* La console rouvre sur la derniere analyse, ce qui est le bon comportement.
+     Encore faut-il savoir de quand elle date, sinon on croit lire l'etat
+     actuel de la machine. */
+  .quand{font-size:10.5px;color:var(--dim);letter-spacing:.04em;margin-bottom:20px}
+  .quand b{color:var(--med);font-weight:400}
+
+  table{width:100%;border-collapse:collapse;font-size:11px}
+  th{text-align:left;font-size:9px;letter-spacing:.14em;color:var(--dim);
+     font-weight:400;padding:8px 10px;border-bottom:1px solid var(--line)}
+  td{padding:10px;border-bottom:1px solid var(--line);color:var(--muted)}
+  td.v{color:var(--pale)}
+
+  .actions{display:flex;gap:8px;margin-top:22px;align-items:center;flex-wrap:wrap}
+  /* Les reglages ont leur propre ligne, separee par un filet. Colles au bouton,
+     ils se lisaient comme une suite de boutons, et on ne savait plus ce qui
+     declenchait quoi. */
+  .reglages{display:flex;gap:26px;flex-wrap:wrap;margin-top:16px;padding-top:15px;
+            border-top:1px solid var(--line)}
+  .btn{font-family:inherit;font-size:9.5px;letter-spacing:.14em;padding:10px 20px;
+       border:1px solid var(--line2);background:transparent;color:var(--muted);
+       cursor:pointer;transition:background .16s ease,border-color .16s ease,color .16s ease}
+  .btn:not(.p):hover:not(:disabled){border-color:var(--steel);color:var(--pale)}
+  .btn:disabled{opacity:.4;cursor:default}
+  /* Le bouton principal s'assombrit au survol. La regle generale l'eclaircissait,
+     ce qui donnait du blanc sur blanc: le bouton disparaissait sous la souris. */
+  .btn.p{background:var(--pale);color:var(--bg);border-color:var(--pale);font-weight:600}
+  .btn.p:hover:not(:disabled){background:var(--steel);border-color:var(--steel);color:var(--bg)}
+  /* Une bascule plutot qu'une case. Un carre qui se remplit de blanc ne dit pas
+     s'il est coche ou vide: les deux etats se ressemblent trop. Ici le curseur
+     se deplace, ce qui se lit d'un coup d'oeil, et l'etiquette change de teinte. */
+  .coche{display:flex;align-items:center;gap:9px;font-size:10.5px;color:var(--dim);
+         cursor:pointer;padding:6px 0}
+  .coche:hover{color:var(--muted)}
+  .coche.on{color:var(--pale)}
+  .coche b{width:30px;height:15px;border:1px solid var(--line2);display:inline-block;
+           position:relative;flex:0 0 30px;transition:border-color .12s}
+  .coche b::after{content:"";position:absolute;top:2px;left:2px;width:9px;height:9px;
+                  background:var(--dim);transition:left .12s,background .12s}
+  .coche.on b{border-color:var(--pale)}
+  .coche.on b::after{left:17px;background:var(--pale)}
+
+  .vide{border:1px solid var(--line);background:var(--panel);padding:34px 30px;
+        text-align:center}
+  .vide h3{font-size:14px;font-weight:500;margin-bottom:8px}
+  .vide p{font-size:11.5px;color:var(--muted);line-height:1.85;max-width:440px;
+          margin:0 auto 18px}
+  .err{border-left:2px solid var(--crit);background:var(--panel);padding:13px 16px;
+       font-size:11.5px;line-height:1.8;color:var(--muted);margin-bottom:20px}
+  .err b{color:var(--pale);font-weight:500}
+  .attente{font-size:11px;color:var(--muted)}
+
+  /* Pendant l'analyse, l'application dit ce qu'elle fait. Avant, la seule chose
+     visible etait la fenetre de console du programme appele, ce qui donnait
+     l'impression que la console avait passe la main a autre chose. */
+  .encours{border:1px solid var(--line);background:var(--panel);padding:30px 28px;
+           margin-bottom:22px}
+  .encours h3{font-size:14px;font-weight:500;margin-bottom:9px}
+  .encours p{font-size:11.5px;color:var(--muted);line-height:1.85;max-width:480px}
+  .pouls{height:3px;background:var(--line2);margin:20px 0 14px;overflow:hidden;
+         position:relative}
+  .pouls i{position:absolute;top:0;left:0;height:100%;width:32%;background:var(--steel);
+           animation:glisse 1.5s ease-in-out infinite}
+  @keyframes glisse{0%{left:-32%}100%{left:100%}}
+  .chrono{font-size:10px;letter-spacing:.14em;color:var(--dim)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="chrome">
+    <span class="mk">_<i>.</i></span>
+    <span class="ttl">CONSOLE ARGUS</span>
+    <span class="host" id="entete"></span>
+  </div>
+
+  <div class="body">
+    <div class="nav" id="nav">
+      <div class="item on" data-v="bulletin">BULLETIN</div>
+      <div class="item" data-v="constats">CONSTATS <span class="badge" id="bConstats"></span></div>
+      <div class="item" data-v="changements">CHANGEMENTS</div>
+      <div class="item" data-v="historique">HISTORIQUE</div>
+      <div class="sep"></div>
+      <div class="item" data-v="exceptions">EXCEPTIONS</div>
+      <div class="item" data-v="reference">RÉFÉRENCE</div>
+      <div class="sep"></div>
+      <div class="item" data-v="parametres">PARAMÈTRES</div>
+      <div class="foot" id="pied"></div>
+    </div>
+    <div class="vue" id="vue"></div>
+  </div>
+</div>
+
+<script>
+let etat = null;
+let bulletin = null;
+let analyseEnCours = false;
+let debutAnalyse = 0;
+let minuterie = null;
+const options = { rapide: true, eleve: true, profil: "workstation", verifierPaquets: false };
+
+const go = () => window.go?.main?.App;
+
+// ecoule rend un age en clair. "il y a 3 minutes" se comprend d'un coup d'oeil
+// la ou une date seule demande un calcul mental.
+function ecoule(iso){
+  const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (s < 90)     return "il y a moins d'une minute";
+  if (s < 5400)   return "il y a " + Math.round(s / 60) + " minutes";
+  if (s < 172800) return "il y a " + Math.round(s / 3600) + " heures";
+  return "il y a " + Math.round(s / 86400) + " jours";
+}
+
+// --- rendu -----------------------------------------------------------------
+
+function couleurNote(n){ return n < 60 ? "crit" : n < 80 ? "med" : "ok"; }
+
+function jauge(titre, explication, axe){
+  const c = couleurNote(axe.score);
+  return `<div class="jauge">
+    <div class="lbl">${titre}</div>
+    <div class="expl">${explication}</div>
+    <div class="val c-${c}">${axe.score} <small>/ 100</small>
+      <span class="mention">${axe.grade}</span></div>
+    <div class="bar"><i class="bg-${c}" style="width:${axe.score}%"></i></div>
+    <div class="perte">${axe.accepted > 0
+      ? axe.accepted + " constat(s) assumé(s), la note sans eux serait " + axe.raw_score
+      : ""}</div>
+  </div>`;
+}
+
+function vueBulletin(){
+  if (!etat) return `<p class="attente">Chargement...</p>`;
+  if (analyseEnCours) return vueAnalyse();
+
+  if (!etat.argusTrouve){
+    return `<h2>Argus est introuvable</h2>
+      <p class="sub">La console ne refait pas le moteur d'analyse, elle appelle la ligne
+         de commande. Sans elle, il n'y a rien à afficher.</p>
+      <div class="err"><b>Ce qui a été cherché.</b> Le programme a été cherché à côté de
+         cette application, puis dans le PATH du système. ${etat.probleme || ""}</div>
+      <p class="sub">Réinstallez Argus, ou placez le programme à côté de cette
+         application.</p>`;
+  }
+
+  if (!bulletin){
+    return `<h2>Aucune analyse</h2>
+      <p class="sub">Cette machine n'a encore jamais été analysée depuis la console.</p>
+      <div class="vide">
+        <h3>Commencer</h3>
+        <p>Une première analyse dresse l'état de la machine. Elle ne modifie rien:
+           elle lit des réglages, des fichiers et des processus, et vous rend deux notes.</p>
+        ${boutons()}
+      </div>`;
+  }
+
+  const b = bulletin;
+  const ouverts = b.findings.filter(f => !f.passed && f.severity !== "INFO" && !f.accepted).length;
+  return `
+    <h2>Bulletin de posture</h2>
+    <p class="sub">Deux notes, parce qu'il y a deux questions différentes. La première:
+       cette machine est-elle bien fermée ? La seconde: quelqu'un y est-il déjà entré ?</p>
+    <p class="quand">Analyse du ${new Date(b.finished_at).toLocaleString("fr-FR")},
+       <b>${ecoule(b.finished_at)}</b>. L'état de la machine a pu changer depuis.</p>
+
+    <div class="jauges">
+      ${jauge("DURCISSEMENT",
+        "Les portes que vous n'avez pas fermées: un disque non chiffré, un pare-feu éteint, un service ouvert sur le réseau.",
+        b.hardening)}
+      ${jauge("INTÉGRITÉ",
+        "Les traces que quelqu'un est déjà passé: un fichier du système remplacé, un programme qui se lance tout seul sans être signé.",
+        b.integrity)}
+    </div>
+
+    <div class="verdict">${b.verdict}</div>
+
+    <table>
+      <tr><th>RÉPARTITION</th><th>NOMBRE</th></tr>
+      <tr><td>Contrôles réussis</td><td class="v">${b.counts.passed || 0}</td></tr>
+      <tr><td>Écarts ouverts</td><td class="v">${ouverts}</td></tr>
+      <tr><td>Assumés sciemment</td><td class="v">${b.counts.accepted || 0}</td></tr>
+      <tr><td>Contrôles en erreur</td><td class="v">${b.counts.errors || 0}</td></tr>
+      <tr><td>Durée de l'analyse</td><td class="v">${(b.duration_ms/1000).toFixed(1)} s</td></tr>
+    </table>
+
+    ${boutons()}`;
+}
+
+function boutons(){
+  // Une option sans effet sur cette plateforme n'est pas affichee. Sous
+  // Windows, l'analyse rapide ne saute rien: les parcours de disque qu'elle
+  // evite n'existent que sous Linux et macOS. La proposer quand meme promet un
+  // gain que l'utilisateur ne constatera jamais, et il finira par douter du
+  // reste.
+  let opts = "";
+  if (etat?.analyseRapideUtile){
+    opts += `<label class="coche ${options.rapide ? "on" : ""}" data-opt="rapide">
+      <b></b>Analyse rapide</label>`;
+  }
+  if (etat?.elevationDisponible){
+    opts += `<label class="coche ${options.eleve ? "on" : ""}" data-opt="eleve">
+      <b></b>Avec les privilèges administrateur</label>`;
+  }
+  return `<div class="actions">
+      <button class="btn p" id="lancer" ${analyseEnCours ? "disabled" : ""}>
+        ${analyseEnCours ? "ANALYSE EN COURS" : "LANCER UNE ANALYSE"}</button>
+    </div>
+    ${opts ? `<div class="reglages">${opts}</div>` : ""}`;
+}
+
+function vueAnalyse(){
+  const s = Math.floor((Date.now() - debutAnalyse) / 1000);
+  return `<h2>Analyse en cours</h2>
+    <p class="sub">Argus lit les réglages, les fichiers et les processus de cette
+       machine. Il ne modifie rien.</p>
+    <div class="encours">
+      <h3>Patientez</h3>
+      <p>${options.eleve
+          ? "Windows a demandé votre autorisation pour que l'analyse accède aux réglages protégés. Si la fenêtre ne s'est pas affichée, cherchez-la dans la barre des tâches."
+          : "L'analyse tourne sans privilèges administrateur: certains contrôles, dont BitLocker et une partie du registre, seront limités."}</p>
+      <div class="pouls"><i></i></div>
+      <div class="chrono">${s} SECONDE${s > 1 ? "S" : ""}</div>
+    </div>`;
+}
+
+function vueAVenir(nom){
+  return `<h2>${nom}</h2>
+    <p class="sub">Cet écran n'est pas encore construit.</p>
+    <div class="vide"><h3>À venir</h3>
+      <p>Le bulletin est la première tranche de la console: elle prouve que
+         l'application sait lancer une analyse, lire son rapport et l'afficher.
+         Les autres écrans viendront ensuite, un par un.</p></div>`;
+}
+
+const VUES = {
+  bulletin: vueBulletin,
+  constats: () => vueAVenir("Constats"),
+  changements: () => vueAVenir("Changements"),
+  historique: () => vueAVenir("Historique"),
+  exceptions: () => vueAVenir("Exceptions"),
+  reference: () => vueAVenir("Référence d'intégrité"),
+  parametres: () => vueAVenir("Paramètres"),
+};
+
+let vueActive = "bulletin";
+
+function dessiner(){
+  document.querySelectorAll(".nav .item").forEach(i =>
+    i.classList.toggle("on", i.dataset.v === vueActive));
+  document.getElementById("vue").innerHTML = VUES[vueActive]();
+
+  const b = document.getElementById("bConstats");
+  if (bulletin){
+    const n = bulletin.findings.filter(f => !f.passed && f.severity !== "INFO" && !f.accepted).length;
+    b.textContent = n;
+    b.classList.toggle("alerte", n > 0);
+  } else { b.textContent = ""; }
+
+  document.getElementById("entete").innerHTML = bulletin
+    ? `${bulletin.host.hostname} - analysée le ${new Date(bulletin.finished_at).toLocaleString("fr-FR")}`
+    : (etat?.argusTrouve ? "aucune analyse" : "");
+
+  document.getElementById("pied").innerHTML =
+    `ARGUS ${etat?.version || ""}<br>STEELVEIL`;
+}
+
+// --- actions ---------------------------------------------------------------
+
+async function lancer(){
+  if (analyseEnCours) return;
+  analyseEnCours = true;
+  debutAnalyse = Date.now();
+  // Le compteur redessine la vue chaque seconde. Sans lui, l'attente se
+  // deroule sur un ecran fige, et rien ne distingue une analyse en cours
+  // d'une application bloquee.
+  minuterie = setInterval(dessiner, 1000);
+  dessiner();
+  try {
+    bulletin = await go().Analyser(options);
+  } catch (e) {
+    document.getElementById("vue").innerHTML =
+      `<h2>L'analyse n'a pas abouti</h2>
+       <div class="err"><b>Ce que le système a répondu.</b> ${e}</div>
+       <p class="sub">Si vous avez refusé l'élévation, décochez les privilèges
+          administrateur: l'analyse tournera avec une couverture réduite.</p>
+       ${boutons()}`;
+    analyseEnCours = false;
+    clearInterval(minuterie);
+    return;
+  }
+  analyseEnCours = false;
+  clearInterval(minuterie);
+  dessiner();
+}
+
+document.getElementById("nav").addEventListener("click", e => {
+  const it = e.target.closest(".item");
+  if (it){ vueActive = it.dataset.v; dessiner(); }
+});
+
+document.getElementById("vue").addEventListener("click", e => {
+  if (e.target.closest("#lancer")) { lancer(); return; }
+  const c = e.target.closest(".coche");
+  if (c){ options[c.dataset.opt] = !options[c.dataset.opt]; dessiner(); }
+});
+
+// --- demarrage -------------------------------------------------------------
+
+window.addEventListener("DOMContentLoaded", async () => {
+  // Wails injecte ses liaisons apres le chargement du document: appeler le
+  // backend immediatement echouerait une fois sur deux, et de facon
+  // intermittente, ce qui est le pire genre de defaut.
+  const attendre = setInterval(async () => {
+    if (!go()) return;
+    clearInterval(attendre);
+    etat = await go().EtatInitial();
+    bulletin = await go().DernierBulletin();
+    dessiner();
+  }, 30);
+  dessiner();
+});
+</script>
+</body>
+</html>
