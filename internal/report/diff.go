@@ -142,7 +142,7 @@ func Compare(oldRep, newRep model.Report) Diff {
 		case nf.Severity < of.Severity:
 			d.Changes = append(d.Changes, Change{
 				Kind: KindBetter, ID: nf.ID, Category: nf.Category,
-				Title:    fmt.Sprintf("%s (%s \u2192 %s)", nf.Title, of.Severity, nf.Severity),
+				Title:    fmt.Sprintf("%s (%s -> %s)", nf.Title, of.Severity, nf.Severity),
 				Severity: nf.Severity,
 			})
 		}
@@ -237,10 +237,10 @@ func ConsoleDiff(w io.Writer, d Diff, color bool) {
 	fmt.Fprintf(w, "Before    : %s\n", d.Old.FinishedAt.Format("2006-01-02 15:04:05"))
 	fmt.Fprintf(w, "After     : %s\n\n", d.New.FinishedAt.Format("2006-01-02 15:04:05"))
 
-	fmt.Fprintf(w, "  HARDENING  %3d \u2192 %3d  (%s)\n",
+	fmt.Fprintf(w, "  HARDENING  %3d -> %3d  (%s)\n",
 		d.Old.Hardening.Score, d.New.Hardening.Score,
 		deltaStr(d.Old.Hardening.Score, d.New.Hardening.Score))
-	fmt.Fprintf(w, "  INTEGRITY  %3d \u2192 %3d  (%s)\n\n",
+	fmt.Fprintf(w, "  INTEGRITY  %3d -> %3d  (%s)\n\n",
 		d.Old.Integrity.Score, d.New.Integrity.Score,
 		deltaStr(d.Old.Integrity.Score, d.New.Integrity.Score))
 
