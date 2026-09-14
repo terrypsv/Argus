@@ -324,7 +324,8 @@ func runExceptions() int {
 func runDiff() int {
 	fs := flag.NewFlagSet("diff", flag.ExitOnError)
 	noColor := fs.Bool("no-color", false, "disable coloured output")
-	failOnChange := fs.Bool("fail-on-change", false, "exit 4 if anything requiring attention changed")
+	failOnChange := fs.Bool("fail-on-change", false, "sort en 4 si un changement mérite attention")
+	sortieJSON := fs.String("json", "", "écrire la comparaison au format JSON dans ce fichier")
 
 	args := os.Args[1:]
 	var paths []string
@@ -339,27 +340,42 @@ func runDiff() int {
 		}
 	}
 	if len(paths) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: argus diff <ancien.json> <nouveau.json> [--fail-on-change]")
+		fmt.Fprintln(os.Stderr, "usage: argus diff <ancien.json> <nouveau.json> [--json <fichier>] [--fail-on-change]")
 		return 2
 	}
 
 	oldRep, err := report.LoadReport(paths[0])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot read %s: %v\n", paths[0], err)
+		fmt.Fprintf(os.Stderr, "lecture impossible de %s: %v\n", paths[0], err)
 		return 1
 	}
 	newRep, err := report.LoadReport(paths[1])
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "cannot read %s: %v\n", paths[1], err)
+		fmt.Fprintf(os.Stderr, "lecture impossible de %s: %v\n", paths[1], err)
 		return 1
 	}
 	if oldRep.Host.Hostname != newRep.Host.Hostname {
-		fmt.Fprintf(os.Stderr, "warning: comparing different hosts (%s and %s)\n",
+		fmt.Fprintf(os.Stderr, "attention: les deux rapports viennent de machines différentes (%s et %s)\n",
 			oldRep.Host.Hostname, newRep.Host.Hostname)
 	}
 
 	d := report.Compare(oldRep, newRep)
-	report.ConsoleDiff(os.Stdout, d, useColor(*noColor))
+	if *sortieJSON != "" {
+		f, err := os.Create(*sortieJSON)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "écriture impossible de %s: %v\n", *sortieJSON, err)
+			return 1
+		}
+		err = report.JSONDiff(f, d)
+		f.Close()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "écriture impossible de %s: %v\n", *sortieJSON, err)
+			return 1
+		}
+		fmt.Fprintf(os.Stderr, "comparaison écrite dans %s\n", *sortieJSON)
+	} else {
+		report.ConsoleDiff(os.Stdout, d, useColor(*noColor))
+	}
 
 	if *failOnChange && d.Alarming > 0 {
 		return 4
