@@ -222,6 +222,83 @@ func (a *App) PrendreReference(eleve bool) error {
 	return err
 }
 
+// ResumeAnalyse est une analyse réduite à ce qu'une liste doit montrer.
+//
+// Les rapports complets pèsent plusieurs centaines de kilooctets chacun: les
+// renvoyer tous pour dessiner un tableau reviendrait à charger l'historique
+// entier en mémoire pour en afficher deux colonnes.
+type ResumeAnalyse struct {
+	Chemin       string    `json:"chemin"`
+	Date         time.Time `json:"date"`
+	Machine      string    `json:"machine"`
+	Durcissement int       `json:"durcissement"`
+	MentionD     string    `json:"mentionD"`
+	Integrite    int       `json:"integrite"`
+	MentionI     string    `json:"mentionI"`
+	Ecarts       int       `json:"ecarts"`
+	Acceptes     int       `json:"acceptes"`
+	Profil       string    `json:"profil"`
+}
+
+// Historique liste les analyses conservées, de la plus récente à la plus
+// ancienne.
+//
+// C'est ce que la ligne de commande ne peut pas faire: elle produit des
+// rapports, elle ne les accumule pas. Une note isolée dit l'état d'un jour;
+// une suite de notes dit si la machine se dégrade, et à partir de quand.
+func (a *App) Historique() ([]ResumeAnalyse, error) {
+	chemins, err := analysesConservees()
+	if err != nil {
+		return nil, err
+	}
+
+	var out []ResumeAnalyse
+	for _, c := range chemins {
+		b, err := lireBulletin(c)
+		if err != nil {
+			// Un rapport illisible ne doit pas faire disparaître les autres:
+			// il est simplement ignoré, et l'historique reste consultable.
+			continue
+		}
+		ouverts := 0
+		for _, f := range b.Constats {
+			if f.Ouvert() {
+				ouverts++
+			}
+		}
+		out = append(out, ResumeAnalyse{
+			Chemin:       c,
+			Date:         b.Fin,
+			Machine:      b.Machine.Nom,
+			Durcissement: b.Durcissement.Note,
+			MentionD:     b.Durcissement.Mention,
+			Integrite:    b.Integrite.Note,
+			MentionI:     b.Integrite.Mention,
+			Ecarts:       ouverts,
+			Acceptes:     b.Comptes["accepted"],
+			Profil:       b.Profil,
+		})
+	}
+	return out, nil
+}
+
+// ChargerAnalyse ouvre une analyse conservée.
+//
+// Le chemin vient de la liste renvoyée par Historique, jamais d'une saisie:
+// la console ne lit que ce qu'elle a elle-même écrit.
+func (a *App) ChargerAnalyse(chemin string) (*Bulletin, error) {
+	chemins, err := analysesConservees()
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range chemins {
+		if c == chemin {
+			return lireBulletin(c)
+		}
+	}
+	return nil, fmt.Errorf("cette analyse ne fait pas partie de l'historique")
+}
+
 // DernierBulletin renvoie l'analyse la plus récente, ou rien s'il n'y en a
 // aucune. L'absence d'analyse n'est pas une erreur: c'est l'état normal au
 // premier lancement, et l'interface doit le présenter comme tel.
