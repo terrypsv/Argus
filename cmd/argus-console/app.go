@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"strconv"
+	"strings"
 	"time"
 
 	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
@@ -149,6 +151,75 @@ func (a *App) emettreProgression() {
 		return
 	}
 	wruntime.EventsEmit(a.ctx, "progression", a.EtatAnalyse())
+}
+
+// Accepter assume un constat après examen.
+//
+// Les trois garde-fous de la ligne de commande sont conservés parce qu'ils font
+// tout l'intérêt du dispositif. Le motif est obligatoire: une exception que
+// personne ne peut expliquer six mois plus tard est pire que le constat
+// qu'elle recouvre. Le constat reste visible dans chaque rapport, avec sa
+// gravité d'origine. Et l'échéance force une revue, sans quoi "temporaire"
+// devient "permanent" en silence.
+func (a *App) Accepter(id, motif, par string, jours int) error {
+	if a.binaire == "" {
+		return fmt.Errorf("le programme argus est introuvable sur cette machine")
+	}
+	if strings.TrimSpace(motif) == "" {
+		return fmt.Errorf("un motif est obligatoire")
+	}
+
+	args := []string{"accept", id, "--reason", motif}
+	if strings.TrimSpace(par) != "" {
+		args = append(args, "--by", par)
+	}
+	if jours > 0 {
+		args = append(args, "--days", strconv.Itoa(jours))
+	}
+	if c, err := cheminExceptions(); err == nil {
+		args = append(args, "--exceptions", c)
+	}
+
+	_, err := executerCommande(a.binaire, args...)
+	return err
+}
+
+// Revoquer annule une acceptation. Le constat redevient un écart ouvert, et la
+// note baissera d'autant à la prochaine analyse.
+func (a *App) Revoquer(id string) error {
+	if a.binaire == "" {
+		return fmt.Errorf("le programme argus est introuvable sur cette machine")
+	}
+	args := []string{"unaccept", id}
+	if c, err := cheminExceptions(); err == nil {
+		args = append(args, "--exceptions", c)
+	}
+	_, err := executerCommande(a.binaire, args...)
+	return err
+}
+
+// PrendreReference enregistre les empreintes des fichiers critiques.
+//
+// C'est le geste le plus lourd de conséquences de tout l'outil, et il n'a rien
+// d'un bouton anodin: la référence fige un état supposé sain, et tout ce qui
+// s'en écarte ensuite sera signalé. La prendre sur une machine déjà altérée
+// enregistre l'altération comme légitime, et le contrôle d'intégrité ne verra
+// plus jamais rien.
+//
+// L'interface doit donc le dire avant, pas après.
+func (a *App) PrendreReference(eleve bool) error {
+	if a.binaire == "" {
+		return fmt.Errorf("le programme argus est introuvable sur cette machine")
+	}
+	reference, err := cheminReference()
+	if err != nil {
+		return err
+	}
+	if eleve && runtime.GOOS == "windows" {
+		return prendreReferenceElevee(a.binaire, reference)
+	}
+	_, err = executerCommande(a.binaire, "baseline", "--baseline", reference)
+	return err
 }
 
 // DernierBulletin renvoie l'analyse la plus récente, ou rien s'il n'y en a
