@@ -12,7 +12,7 @@
   :root{
     --bg:#08090B;--panel:#0B0D10;--panel2:#101318;--line:#171A1F;--line2:#242931;
     --steel:#5D6A7A;--dim:#39414C;--pale:#E8EDF2;--muted:#68717D;
-    --crit:#C4705E;--med:#C39A45;--ok:#6FA97F;
+    --crit:#C4705E;--high:#C47A4E;--med:#C5A33F;--low:#A9AE5B;--assume:#6E8CA0;--ok:#6FA97F;
     --mono:'Cascadia Mono','Consolas','JetBrains Mono',ui-monospace,monospace;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -74,8 +74,15 @@
   .bar i{display:block;height:100%}
   .jauge .perte{margin-top:11px;font-size:9.5px;color:var(--dim);line-height:2;
                 min-height:19px}
-  .c-crit{color:var(--crit)} .c-med{color:var(--med)} .c-ok{color:var(--ok)}
-  .bg-crit{background:var(--crit)} .bg-med{background:var(--med)} .bg-ok{background:var(--ok)}
+  /* Quatre teintes chaudes qui se suivent sans se confondre, et une teinte
+     froide a part pour ce qui a ete decide. Deux gravites de la meme couleur
+     forcent a lire l'etiquette pour les distinguer, ce qui annule l'interet
+     d'une couleur. */
+  .c-crit{color:var(--crit)} .c-high{color:var(--high)}
+  .c-med{color:var(--med)}   .c-low{color:var(--low)}
+  .c-assume{color:var(--assume)} .c-ok{color:var(--ok)}
+  .bg-crit{background:var(--crit)} .bg-med{background:var(--med)}
+  .bg-ok{background:var(--ok)}
 
   .verdict{border-left:2px solid var(--med);padding:13px 16px;background:var(--panel);
            font-size:12px;line-height:1.85;margin-bottom:22px}
@@ -129,6 +136,53 @@
        font-size:11.5px;line-height:1.8;color:var(--muted);margin-bottom:20px}
   .err b{color:var(--pale);font-weight:500}
   .attente{font-size:11px;color:var(--muted)}
+  /* --- ecran des constats --- */
+  .filtres{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+  .puce{font-size:9.5px;letter-spacing:.12em;padding:6px 12px;border:1px solid var(--line2);
+        color:var(--muted);cursor:pointer;transition:border-color .14s,color .14s}
+  .puce:hover{color:var(--pale)}
+  .puce.on{border-color:var(--pale);color:var(--pale)}
+  .cst{border:1px solid var(--line);background:var(--panel);margin-bottom:7px}
+  .cst .tete{display:flex;align-items:center;gap:13px;padding:13px 15px;cursor:pointer}
+  .cst .tete:hover{background:#0D1014}
+  .grav{font-size:9px;letter-spacing:.1em;padding:3px 7px;border:1px solid currentColor;
+        min-width:56px;text-align:center;flex:0 0 auto}
+  .cst .titre{font-size:12px;flex:1;line-height:1.5}
+  .cst .ref{font-size:9.5px;color:var(--dim);flex:0 0 auto}
+  .cst .corps{border-top:1px solid var(--line);padding:15px}
+  .cst .desc{font-size:11.5px;color:var(--muted);line-height:1.85}
+  .preuves{margin:13px 0;font-size:10.5px;color:var(--muted);line-height:1.95;
+           max-height:230px;overflow:auto}
+  .preuves div{padding-left:14px;position:relative;word-break:break-all}
+  .preuves div::before{content:"-";position:absolute;left:0;color:var(--dim)}
+  .fix{color:var(--steel);font-size:11.5px;line-height:1.8;margin-top:10px}
+  .fix::before{content:"-> ";color:var(--dim)}
+  .refs{font-size:10px;color:var(--dim);margin-top:10px}
+  .assume{border-left:2px solid var(--med);padding:10px 14px;background:var(--panel2);
+          font-size:11px;line-height:1.8;color:var(--muted);margin-bottom:12px}
+  .assume b{color:var(--pale);font-weight:500}
+
+  .form{border:1px solid var(--steel);background:var(--panel2);padding:18px;margin-top:14px}
+  .form h4{font-size:12px;font-weight:500;margin-bottom:5px}
+  .form .pourquoi{font-size:10.5px;color:var(--muted);line-height:1.8;margin-bottom:14px}
+  .champ{margin-bottom:12px}
+  .champ label{display:block;font-size:9px;letter-spacing:.14em;color:var(--dim);
+               margin-bottom:5px}
+  .champ input,.champ select{width:100%;font-family:inherit;font-size:11.5px;
+       background:var(--bg);border:1px solid var(--line2);color:var(--pale);
+       padding:9px 11px;outline:none;transition:border-color .14s}
+  .champ input:focus,.champ select:focus{border-color:var(--steel)}
+  .champ .oblig{color:var(--med)}
+  .avis{border-left:2px solid var(--ok);background:var(--panel);padding:12px 15px;
+        font-size:11.5px;line-height:1.8;margin-bottom:18px}
+  /* La couverture des actions est declaree, pas supposee. Une table ecrite a
+     la main prend du retard des qu'un controle est ajoute, et le silence
+     ressemble alors a une absence de probleme. */
+  .couverture{margin-top:22px;padding-top:14px;border-top:1px solid var(--line);
+              font-size:10.5px;color:var(--dim);line-height:1.9}
+  .couverture b{color:var(--muted);font-weight:400}
+  .avis b{color:var(--pale);font-weight:500}
+
 
   /* Pendant l'analyse, l'application dit ce qu'elle fait. Avant, la seule chose
      visible etait la fenetre de console du programme appele, ce qui donnait
@@ -181,6 +235,18 @@ let progression = { enCours: false, etape: "", secondes: 0 };
 // bascule pendant qu'elle tourne ne doit pas reecrire ce qui est affiche.
 let eleveEffectif = false;
 let resultatPret = false;
+let constatOuvert = null;
+let formulaireOuvert = null;
+let filtreConstats = "tous";
+let messageConstat = null;
+let confirmerReference = false;
+// Les ecrans et les fichiers associes aux constats sont resolus une fois, par
+// le backend, plutot qu'a chaque redessin: la verification d'existence d'un
+// fichier touche le disque, et la faire soixante fois par seconde pour afficher
+// un bouton serait absurde.
+let destinations = {};
+let chemins = {};
+let navigateurs = {};
 const options = { rapide: true, eleve: true, profil: "workstation", verifierPaquets: false };
 
 const go = () => window.go?.main?.App;
@@ -318,6 +384,178 @@ function vueAnalyse(){
     </div>`;
 }
 
+
+// --- ecran des constats ----------------------------------------------------
+
+const GRAVITES = { CRITICAL: "crit", HIGH: "high", MEDIUM: "med", LOW: "low", INFO: "" };
+const ORDRE = ["CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"];
+
+function constatsAffichables(){
+  if (!bulletin) return [];
+  return bulletin.findings
+    .filter(f => !f.passed && (f.severity !== "INFO" || f.error))
+    .sort((a, b) => {
+      // Les constats assumés passent en dernier: ce sont des décisions prises,
+      // pas des points à traiter aujourd'hui.
+      if (!!a.accepted !== !!b.accepted) return a.accepted ? 1 : -1;
+      return ORDRE.indexOf(a.severity) - ORDRE.indexOf(b.severity);
+    });
+}
+
+function vueConstats(){
+  if (!bulletin){
+    return `<h2>Constats</h2>
+      <p class="sub">Aucune analyse n'a encore été faite sur cette machine.</p>
+      <div class="vide"><h3>Rien à montrer</h3>
+        <p>Lancez une analyse depuis le bulletin: les points relevés apparaîtront ici,
+           avec ce qu'ils signifient et ce qu'il est possible d'en faire.</p></div>`;
+  }
+
+  const tous = constatsAffichables();
+  const visibles = filtreConstats === "tous"
+    ? tous
+    : filtreConstats === "assumes"
+      ? tous.filter(f => f.accepted)
+      : tous.filter(f => f.severity === filtreConstats && !f.accepted);
+
+  const compte = g => tous.filter(f => f.severity === g && !f.accepted).length;
+  const boutonFiltre = (cle, texte, n) =>
+    `<span class="puce ${filtreConstats === cle ? "on" : ""}" data-filtre="${cle}">
+       ${texte}${n !== undefined ? " " + n : ""}</span>`;
+
+  let liste = visibles.map(f => carteConstat(f)).join("");
+  if (!visibles.length){
+    liste = `<div class="vide"><h3>Rien dans cette catégorie</h3>
+      <p>Aucun constat ne correspond au filtre choisi.</p></div>`;
+  }
+
+  // Les constats auxquels aucune action n'est associee sont comptes et nommes.
+  // Sans cela, l'ajout d'un controle a l'outil passerait inapercu ici: le
+  // bouton manquerait sans que rien ne le signale, et la console paraitrait
+  // simplement moins utile sur ce point precis.
+  const sansAction = tous.filter(f =>
+    !f.accepted && !destinations[f.id] && !chemins[f.id] && !navigateurs[f.id]
+    && !f.id.startsWith("INTEG-"));
+
+  return `<h2>Constats</h2>
+    <p class="sub">Chaque ligne est un point à traiter. Cliquez pour lire ce que ça veut
+       dire, ce qui a été observé, et décider quoi en faire.</p>
+    ${messageConstat ? `<div class="avis"><b>${messageConstat.titre}</b>
+       ${messageConstat.texte}</div>` : ""}
+    ${confirmerReference ? `<div class="form">
+      <h4>Reprendre la référence d'intégrité</h4>
+      <p class="pourquoi">La référence fige l'état actuel des fichiers critiques, et tout
+         ce qui s'en écartera ensuite sera signalé. La reprendre efface donc les écarts
+         constatés aujourd'hui: si l'un d'eux venait d'une altération et non d'une mise à
+         jour, elle serait enregistrée comme légitime et le contrôle ne la reverrait
+         jamais.</p>
+      <p class="pourquoi">Ne la reprenez qu'après avoir vérifié que les fichiers modifiés
+         portent une signature d'éditeur valide, ce que le rapport indique.</p>
+      <div class="actions">
+        <button class="btn p" data-refconfirme="1">JE CONFIRME, REPRENDRE</button>
+        <button class="btn" data-refannule="1">ANNULER</button>
+      </div></div>` : ""}
+    <div class="filtres">
+      ${boutonFiltre("tous", "TOUS", tous.length)}
+      ${compte("CRITICAL") ? boutonFiltre("CRITICAL", "CRITICAL", compte("CRITICAL")) : ""}
+      ${compte("HIGH") ? boutonFiltre("HIGH", "HIGH", compte("HIGH")) : ""}
+      ${compte("MEDIUM") ? boutonFiltre("MEDIUM", "MEDIUM", compte("MEDIUM")) : ""}
+      ${compte("LOW") ? boutonFiltre("LOW", "LOW", compte("LOW")) : ""}
+      ${tous.some(f => f.accepted)
+        ? boutonFiltre("assumes", "ASSUMÉS", tous.filter(f => f.accepted).length) : ""}
+    </div>
+    ${liste}
+    ${sansAction.length ? `<div class="couverture">
+      <b>${sansAction.length} constat${sansAction.length > 1 ? "s" : ""} sans écran associé:</b>
+      ${sansAction.map(f => f.id).join(", ")}.
+      La console sait où mènent la plupart des constats, pas tous. Pour ceux-ci, la
+      remédiation décrite dans le détail reste la marche à suivre.
+    </div>` : ""}`;
+}
+
+function carteConstat(f){
+  const ouvert = constatOuvert === f.id;
+  const c = GRAVITES[f.severity] || "";
+  const etiquette = f.accepted ? "ASSUMÉ" : f.severity;
+  return `<div class="cst" data-id="${f.id}">
+    <div class="tete">
+      <span class="grav ${f.accepted ? "c-assume" : "c-" + c}">${etiquette}</span>
+      <span class="titre">${echapper(f.title)}</span>
+      <span class="ref">${f.id}</span>
+    </div>
+    ${ouvert ? corpsConstat(f) : ""}
+  </div>`;
+}
+
+function corpsConstat(f){
+  const preuves = (f.evidence || []).slice(0, 40)
+    .map(e => `<div>${echapper(e)}</div>`).join("");
+  const reste = (f.evidence || []).length - 40;
+
+  return `<div class="corps">
+    ${f.accepted ? `<div class="assume"><b>Vous avez choisi d'assumer ce constat.</b>
+       Motif: ${echapper(f.accepted)}. Il reste compté à part et n'entre pas dans
+       la note, mais il n'a pas disparu.</div>` : ""}
+    ${f.detail ? `<div class="desc">${echapper(f.detail)}</div>` : ""}
+    ${preuves ? `<div class="preuves">${preuves}
+       ${reste > 0 ? `<div style="color:var(--dim)">et ${reste} de plus</div>` : ""}</div>` : ""}
+    ${f.remediation ? `<div class="fix">${echapper(f.remediation)}</div>` : ""}
+    ${f.superseded ? `<div class="refs">Compté une seule fois, via ${f.superseded}.</div>` : ""}
+    ${formulaireOuvert === f.id ? formulaireAcceptation(f) : `
+      <div class="actions">
+        ${f.accepted
+          ? `<button class="btn" data-revoquer="${f.id}">NE PLUS ASSUMER</button>`
+          : `<button class="btn" data-assumer="${f.id}">ASSUMER CE CONSTAT</button>`}
+        ${destinations[f.id]
+          ? `<button class="btn" data-reglage="${f.id}">${destinations[f.id].libelle.toUpperCase()}</button>`
+          : ""}
+        ${chemins[f.id]
+          ? `<button class="btn" data-emplacement="${f.id}">OUVRIR L'EMPLACEMENT</button>`
+          : ""}
+        ${navigateurs[f.id]
+          ? `<button class="btn" data-extensions="${navigateurs[f.id]}">OUVRIR LES EXTENSIONS ${navigateurs[f.id].toUpperCase()}</button>`
+          : ""}
+        ${f.id.startsWith("INTEG-") && f.id !== "INTEG-NOBASE"
+          ? `<button class="btn" data-reference="1">REPRENDRE LA RÉFÉRENCE</button>`
+          : ""}
+      </div>
+      <p class="refs">Argus ne modifie rien. Ces boutons ouvrent l'écran concerné;
+         la décision et le réglage restent les vôtres.</p>`}
+  </div>`;
+}
+
+function formulaireAcceptation(f){
+  return `<div class="form">
+    <h4>Assumer ce constat</h4>
+    <p class="pourquoi">Il restera visible dans chaque rapport, avec sa gravité d'origine
+       et votre motif. Une machine où l'on assume des constats ne peut pas se présenter
+       comme irréprochable: la note sans exception reste affichée à côté de l'autre.</p>
+    <div class="champ"><label>MOTIF <span class="oblig">obligatoire</span></label>
+      <input id="motif" placeholder="Pourquoi ce constat est-il acceptable ?"></div>
+    <div class="champ"><label>DÉCIDÉ PAR</label>
+      <input id="par" placeholder="votre nom"></div>
+    <div class="champ"><label>REVOIR DANS</label>
+      <select id="jours">
+        <option value="90">90 jours</option>
+        <option value="30">30 jours</option>
+        <option value="180">180 jours</option>
+        <option value="0">sans échéance (déconseillé)</option>
+      </select></div>
+    <div class="actions">
+      <button class="btn p" data-valider="${f.id}">ENREGISTRER</button>
+      <button class="btn" data-annulerform="1">ANNULER</button>
+    </div>
+  </div>`;
+}
+
+// echapper evite qu'une preuve contenant des chevrons, ce qui arrive avec les
+// permissions de navigateur comme <all_urls>, ne soit interpretee comme du
+// balisage et disparaisse de l'affichage.
+function echapper(t){
+  return String(t === undefined || t === null ? "" : t)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
 function vueAVenir(nom){
   return `<h2>${nom}</h2>
     <p class="sub">Cet écran n'est pas encore construit.</p>
@@ -329,7 +567,7 @@ function vueAVenir(nom){
 
 const VUES = {
   bulletin: vueBulletin,
-  constats: () => vueAVenir("Constats"),
+  constats: vueConstats,
   changements: () => vueAVenir("Changements"),
   historique: () => vueAVenir("Historique"),
   exceptions: () => vueAVenir("Exceptions"),
@@ -412,6 +650,100 @@ async function lancer(){
   progression = { enCours: false, etape: "", secondes: 0 };
   resultatPret = true;
   dessiner();
+  await resoudreActions();
+  dessiner();
+}
+
+async function validerAcceptation(id){
+  const motif = document.getElementById("motif")?.value?.trim() || "";
+  const par = document.getElementById("par")?.value?.trim() || "";
+  const jours = parseInt(document.getElementById("jours")?.value || "0", 10);
+
+  if (!motif){
+    // Le motif est refuse ici plutot que par le moteur: l'utilisateur voit
+    // immediatement ce qui manque, a l'endroit ou il doit le corriger.
+    const champ = document.getElementById("motif");
+    champ.style.borderColor = "var(--med)";
+    champ.focus();
+    return;
+  }
+
+  try {
+    await go().Accepter(id, motif, par, jours);
+  } catch (e) {
+    messageConstat = { titre: "L'enregistrement a échoué.", texte: String(e) };
+    dessiner(); return;
+  }
+
+  formulaireOuvert = null;
+  messageConstat = {
+    titre: "Constat assumé.",
+    texte: "La décision est enregistrée. Les notes ne la prendront en compte qu'à la "
+         + "prochaine analyse: elles décrivent l'état constaté, pas les décisions prises depuis."
+  };
+  dessiner();
+}
+
+async function validerReference(){
+  confirmerReference = false;
+  messageConstat = { titre: "Enregistrement en cours.",
+    texte: "Les empreintes des fichiers critiques sont recalculées. Windows peut demander votre autorisation." };
+  dessiner();
+  try {
+    await go().PrendreReference(!!(etat?.elevationDisponible && options.eleve));
+  } catch (e) {
+    messageConstat = { titre: "La référence n'a pas pu être enregistrée.", texte: String(e) };
+    dessiner(); return;
+  }
+  messageConstat = { titre: "Référence enregistrée.",
+    texte: "Les écarts d'intégrité disparaîtront à la prochaine analyse, et tout changement ultérieur sera comparé à cet état." };
+  dessiner();
+}
+
+async function validerRevocation(id){
+  try {
+    await go().Revoquer(id);
+  } catch (e) {
+    messageConstat = { titre: "La révocation a échoué.", texte: String(e) };
+    dessiner(); return;
+  }
+  messageConstat = {
+    titre: "Le constat redevient un écart ouvert.",
+    texte: "Il sera de nouveau compté dans la note à la prochaine analyse, et celle-ci "
+         + "baissera d'autant."
+  };
+  dessiner();
+}
+
+// resoudreActions demande au backend, pour chaque constat ouvert, l'ecran qui
+// le gouverne et le fichier que ses preuves designent.
+async function resoudreActions(){
+  destinations = {}; chemins = {}; navigateurs = {};
+  if (!bulletin) return;
+  for (const f of bulletin.findings){
+    if (f.passed || f.severity === "INFO") continue;
+    try {
+      const d = await go().DestinationDuConstat(f.id);
+      if (d) destinations[f.id] = d;
+    } catch (e) { /* un constat sans ecran connu n'est pas une erreur */ }
+    for (const preuve of (f.evidence || []).slice(0, 5)){
+      try {
+        const c = await go().CheminDeLaPreuve(preuve);
+        if (c){ chemins[f.id] = c; break; }
+      } catch (e) { /* idem */ }
+    }
+    // Les extensions n'ont pas d'ecran Windows: elles se gerent dans le
+    // navigateur qui les heberge, et le bouton n'apparait que si ce navigateur
+    // est effectivement installe ici.
+    if (f.id.startsWith("EXT-")){
+      for (const preuve of (f.evidence || []).slice(0, 3)){
+        try {
+          const n = await go().NavigateurDeLaPreuve(preuve);
+          if (n){ navigateurs[f.id] = n; break; }
+        } catch (e) { /* idem */ }
+      }
+    }
+  }
 }
 
 // dessiner_temoin_seul rafraichit le bandeau sans toucher a la vue, qui vient
@@ -426,13 +758,67 @@ document.getElementById("nav").addEventListener("click", e => {
   if (it){
     vueActive = it.dataset.v;
     if (vueActive === "bulletin") resultatPret = false;
+    messageConstat = null;
     dessiner();
   }
 });
 
-document.getElementById("vue").addEventListener("click", e => {
+document.getElementById("vue").addEventListener("click", async e => {
   if (e.target.closest("#lancer")) { lancer(); return; }
   if (e.target.closest("#annuler")) { go()?.Annuler(); return; }
+
+  const filtre = e.target.closest("[data-filtre]");
+  if (filtre){
+    filtreConstats = filtre.dataset.filtre;
+    constatOuvert = null; formulaireOuvert = null;
+    dessiner(); return;
+  }
+
+  const assumer = e.target.closest("[data-assumer]");
+  if (assumer){ formulaireOuvert = assumer.dataset.assumer; dessiner(); return; }
+
+  if (e.target.closest("[data-annulerform]")){ formulaireOuvert = null; dessiner(); return; }
+
+  const valider = e.target.closest("[data-valider]");
+  if (valider){ await validerAcceptation(valider.dataset.valider); return; }
+
+  const revoquer = e.target.closest("[data-revoquer]");
+  if (revoquer){ await validerRevocation(revoquer.dataset.revoquer); return; }
+
+  const reglage = e.target.closest("[data-reglage]");
+  if (reglage){
+    try { await go().OuvrirReglage(reglage.dataset.reglage); }
+    catch (err) { messageConstat = { titre: "Impossible d'ouvrir cet écran.", texte: String(err) }; dessiner(); }
+    return;
+  }
+
+  const ext = e.target.closest("[data-extensions]");
+  if (ext){
+    try { await go().OuvrirExtensions(ext.dataset.extensions); }
+    catch (err) { messageConstat = { titre: "Impossible d'ouvrir le navigateur.", texte: String(err) }; dessiner(); }
+    return;
+  }
+
+  if (e.target.closest("[data-reference]")){ confirmerReference = true; dessiner(); return; }
+  if (e.target.closest("[data-refconfirme]")){ await validerReference(); return; }
+  if (e.target.closest("[data-refannule]")){ confirmerReference = false; dessiner(); return; }
+
+  const emplacement = e.target.closest("[data-emplacement]");
+  if (emplacement){
+    try { await go().OuvrirEmplacement(chemins[emplacement.dataset.emplacement]); }
+    catch (err) { messageConstat = { titre: "Impossible d'ouvrir cet emplacement.", texte: String(err) }; dessiner(); }
+    return;
+  }
+
+  // Le depliage vient en dernier: un clic sur un bouton interne ne doit pas
+  // refermer la carte sous les doigts de celui qui vient de cliquer.
+  const tete = e.target.closest(".cst .tete");
+  if (tete){
+    const id = tete.closest(".cst").dataset.id;
+    constatOuvert = constatOuvert === id ? null : id;
+    formulaireOuvert = null;
+    dessiner(); return;
+  }
   const c = e.target.closest(".coche");
   if (c){ options[c.dataset.opt] = !options[c.dataset.opt]; dessiner(); }
 });
@@ -448,6 +834,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     clearInterval(attendre);
     etat = await go().EtatInitial();
     bulletin = await go().DernierBulletin();
+    await resoudreActions();
     // Le backend pousse l'avancement plutot que l'interface ne l'interroge:
     // une analyse qui dure passe ainsi son etape en cours sans qu'on ait a
     // choisir un rythme d'interrogation, toujours soit trop lent soit inutile.
