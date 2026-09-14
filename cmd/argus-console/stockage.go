@@ -97,3 +97,27 @@ func analysesConservees() ([]string, error) {
 	sort.Sort(sort.Reverse(sort.StringSlice(chemins)))
 	return chemins, nil
 }
+
+// cheminExceptions et cheminReference désignent les deux fichiers que l'outil
+// lit et écrit en dehors des rapports.
+//
+// La console les impose plutôt que de laisser Argus les chercher. Sans cela,
+// ils sont cherchés dans le répertoire courant du processus, qui dépend
+// d'où la console a été lancée: assumer un constat écrirait dans un fichier
+// qu'une analyse suivante, lancée autrement, ne lirait pas. Le réglage aurait
+// l'air de fonctionner et serait perdu.
+func cheminExceptions() (string, error) {
+	base, err := dossierDonnees()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(base, "argus-exceptions.json"), nil
+}
+
+func cheminReference() (string, error) {
+	base, err := dossierDonnees()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(base, "argus-baseline.json"), nil
+}

@@ -173,6 +173,15 @@ func lancerAnalyse(binaire string, opt OptionsAnalyse, suivi *Analyse) (string, 
 	suivi.mu.Unlock()
 
 	args := []string{"scan", "--json", sortie, "--no-color"}
+	// Les deux fichiers que l'outil lit et écrit sont désignés explicitement:
+	// laissés au répertoire courant, ils changeraient selon d'où la console a
+	// été lancée.
+	if c, err := cheminExceptions(); err == nil {
+		args = append(args, "--exceptions", c)
+	}
+	if c, err := cheminReference(); err == nil {
+		args = append(args, "--baseline", c)
+	}
 	if opt.Rapide && runtime.GOOS != "windows" {
 		args = append(args, "--quick")
 	}
@@ -251,4 +260,24 @@ func extraireEtape(ligne string) string {
 		}
 	}
 	return ""
+}
+
+// executerCommande lance une commande courte d'Argus et renvoie sa sortie.
+//
+// Ces commandes écrivent un fichier de configuration et se terminent aussitôt:
+// elles n'ont besoin ni de privilèges élevés, ni de suivi de progression, ni
+// d'annulation. Les traiter comme une analyse serait leur imposer une machinerie
+// dont elles n'ont que faire.
+func executerCommande(binaire string, args ...string) (string, error) {
+	cmd := exec.Command(binaire, args...)
+	masquerFenetre(cmd)
+	sortie, err := cmd.CombinedOutput()
+	texte := strings.TrimSpace(string(sortie))
+	if err != nil {
+		if texte != "" {
+			return "", fmt.Errorf("%s", texte)
+		}
+		return "", err
+	}
+	return texte, nil
 }

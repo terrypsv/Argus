@@ -20,3 +20,19 @@ func analyseElevee(binaire string, args []string, suivi *Analyse) error {
 }
 
 func arreterProcessusEleve(pid uint32) error { return nil }
+
+func ouvrirCible(cible string) error {
+	return fmt.Errorf("l'ouverture des réglages n'est disponible que sous Windows")
+}
+
+func selectionnerDansExplorateur(chemin string) error {
+	return fmt.Errorf("l'Explorateur n'est disponible que sous Windows")
+}
+
+func lancerProgramme(chemin string, args ...string) error {
+	return fmt.Errorf("non disponible sur ce système")
+}
+
+func prendreReferenceElevee(binaire, reference string) error {
+	return fmt.Errorf("l'élévation n'est disponible que sous Windows")
+}
