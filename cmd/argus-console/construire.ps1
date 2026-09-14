@@ -39,14 +39,38 @@ $racine = Resolve-Path (Join-Path $ici "..\..")
 # Windows verrouille un executable en cours d'execution: la compilation echoue,
 # ou pire, elle reussit sur l'ancien fichier et on teste une version qu'on croit
 # avoir remplacee. On ferme donc avant de construire.
+#
+# Un cas merite d'etre traite a part: une instance lancee depuis une session
+# administrateur ne peut pas etre arretee depuis une session ordinaire. Le
+# message par defaut de PowerShell dit "Acces refuse" sans dire quoi faire, et
+# la construction s'interrompt en laissant croire a un probleme de code.
 function ArreterInstances {
+    $bloquants = @()
     foreach ($nom in @("argus-console", "argus")) {
-        $p = Get-Process $nom -ErrorAction SilentlyContinue
-        if ($p) {
-            Write-Host "  fermeture de $nom" -ForegroundColor DarkGray
-            $p | Stop-Process -Force
-            Start-Sleep -Milliseconds 400
+        foreach ($p in @(Get-Process $nom -ErrorAction SilentlyContinue)) {
+            Write-Host "  fermeture de $nom ($($p.Id))" -ForegroundColor DarkGray
+            try {
+                Stop-Process -Id $p.Id -Force -ErrorAction Stop
+                Start-Sleep -Milliseconds 300
+            } catch {
+                $bloquants += $p
+            }
         }
+    }
+    if ($bloquants.Count -gt 0) {
+        Write-Host ""
+        Write-Host "Impossible d'arreter une instance deja lancee." -ForegroundColor Red
+        foreach ($p in $bloquants) {
+            Write-Host "  $($p.ProcessName), PID $($p.Id)" -ForegroundColor Red
+        }
+        Write-Host ""
+        Write-Host "Elle a ete lancee avec des privileges plus eleves que cette" -ForegroundColor Yellow
+        Write-Host "session. Depuis une console administrateur:" -ForegroundColor Yellow
+        Write-Host "  Stop-Process -Id $($bloquants[0].Id) -Force" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "Sans cela la compilation ecrirait a cote, et vous testeriez" -ForegroundColor Yellow
+        Write-Host "l'ancienne version en croyant tester la nouvelle." -ForegroundColor Yellow
+        throw "une instance non arretable bloque la construction"
     }
 }
 
