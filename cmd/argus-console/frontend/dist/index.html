@@ -136,6 +136,17 @@
        font-size:11.5px;line-height:1.8;color:var(--muted);margin-bottom:20px}
   .err b{color:var(--pale);font-weight:500}
   .attente{font-size:11px;color:var(--muted)}
+  /* --- historique --- */
+  .graphe{border:1px solid var(--line);background:var(--panel);padding:20px;
+          margin-bottom:20px}
+  .legende{display:flex;gap:22px;font-size:10px;color:var(--muted);margin-bottom:14px}
+  .legende span{display:flex;align-items:center;gap:7px}
+  .cle{width:14px;height:2px;display:inline-block}
+  .lignes tr{cursor:pointer}
+  .lignes tr:hover td{color:var(--pale);background:#0D1014}
+  .ouverte td{color:var(--pale)}
+  .ouverte td:first-child::before{content:"> ";color:var(--steel)}
+
   /* --- ecran des constats --- */
   .filtres{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
   .puce{font-size:9.5px;letter-spacing:.12em;padding:6px 12px;border:1px solid var(--line2);
@@ -240,6 +251,7 @@ let formulaireOuvert = null;
 let filtreConstats = "tous";
 let messageConstat = null;
 let confirmerReference = false;
+let historique = null;
 // Les ecrans et les fichiers associes aux constats sont resolus une fois, par
 // le backend, plutot qu'a chaque redessin: la verification d'existence d'un
 // fichier touche le disque, et la faire soixante fois par seconde pour afficher
@@ -556,6 +568,80 @@ function echapper(t){
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
+
+// --- ecran de l'historique -------------------------------------------------
+
+function vueHistorique(){
+  if (!historique){
+    return `<h2>Historique</h2><p class="attente">Lecture des analyses conservées...</p>`;
+  }
+  if (!historique.length){
+    return `<h2>Historique</h2>
+      <p class="sub">Aucune analyse conservée pour l'instant.</p>
+      <div class="vide"><h3>Rien à retracer</h3>
+        <p>Chaque analyse lancée depuis la console est conservée. À partir de la deuxième,
+           l'évolution des deux notes apparaîtra ici.</p></div>`;
+  }
+
+  return `<h2>Historique</h2>
+    <p class="sub">L'évolution de vos deux notes dans le temps. Une note qui descend
+       doucement signale un relâchement; une chute brutale signale qu'il s'est passé
+       quelque chose ce jour-là.</p>
+    ${historique.length > 1 ? grapheHistorique() : `<div class="couverture">
+       Une seule analyse pour l'instant: la courbe apparaîtra dès la deuxième.</div>`}
+    <table class="lignes">
+      <tr><th>DATE</th><th>DURCISSEMENT</th><th>INTÉGRITÉ</th><th>ÉCARTS</th><th>ASSUMÉS</th></tr>
+      ${historique.map(a => `
+        <tr data-analyse="${a.chemin}" class="${bulletin && bulletin.finished_at === a.date ? "ouverte" : ""}">
+          <td class="v">${new Date(a.date).toLocaleString("fr-FR")}</td>
+          <td class="v c-${couleurNote(a.durcissement)}">${a.durcissement} ${a.mentionD}</td>
+          <td class="v c-${couleurNote(a.integrite)}">${a.integrite} ${a.mentionI}</td>
+          <td>${a.ecarts}</td>
+          <td>${a.acceptes || ""}</td>
+        </tr>`).join("")}
+    </table>
+    <div class="couverture">Cliquez une ligne pour ouvrir cette analyse dans le bulletin.
+      Les rapports sont conservés dans ${etat?.dossierDonnees || "le dossier de données"}.</div>`;
+}
+
+// grapheHistorique trace les deux notes dans l'ordre chronologique.
+//
+// Les points sont espacés régulièrement plutôt que placés selon la date réelle:
+// des analyses lancées à la main tombent à des intervalles très inégaux, et une
+// échelle de temps exacte écraserait tout un mois d'observations contre le bord
+// à cause d'une analyse isolée faite un an plus tôt.
+function grapheHistorique(){
+  const pts = historique.slice(0, 24).reverse();
+  const L = 620, H = 170, marge = 34;
+  const x = i => marge + (pts.length === 1 ? 0 : i * (L - marge - 14) / (pts.length - 1));
+  const y = n => 24 + (100 - n) * (H - 48) / 100;
+
+  const ligne = (champ, couleur) =>
+    `<polyline fill="none" stroke="${couleur}" stroke-width="2"
+       points="${pts.map((a, i) => x(i) + "," + y(a[champ])).join(" ")}"/>` +
+    pts.map((a, i) => `<circle cx="${x(i)}" cy="${y(a[champ])}" r="2.5" fill="${couleur}"/>`).join("");
+
+  const graduation = n => `
+    <line x1="${marge}" y1="${y(n)}" x2="${L}" y2="${y(n)}" stroke="#171A1F"/>
+    <text x="4" y="${y(n) + 3}" fill="#39414C" font-size="9">${n}</text>`;
+
+  return `<div class="graphe">
+    <div class="legende">
+      <span><i class="cle" style="background:var(--med)"></i> DURCISSEMENT</span>
+      <span><i class="cle" style="background:var(--crit)"></i> INTÉGRITÉ</span>
+    </div>
+    <svg viewBox="0 0 ${L} ${H}" style="width:100%;height:${H}px">
+      ${graduation(100)}${graduation(75)}${graduation(50)}${graduation(25)}
+      ${ligne("durcissement", "#C5A33F")}
+      ${ligne("integrite", "#C4705E")}
+      <text x="${marge}" y="${H - 4}" fill="#39414C" font-size="9">
+        ${new Date(pts[0].date).toLocaleDateString("fr-FR")}</text>
+      <text x="${L - 62}" y="${H - 4}" fill="#39414C" font-size="9">
+        ${new Date(pts[pts.length - 1].date).toLocaleDateString("fr-FR")}</text>
+    </svg>
+  </div>`;
+}
+
 function vueAVenir(nom){
   return `<h2>${nom}</h2>
     <p class="sub">Cet écran n'est pas encore construit.</p>
@@ -569,7 +655,7 @@ const VUES = {
   bulletin: vueBulletin,
   constats: vueConstats,
   changements: () => vueAVenir("Changements"),
-  historique: () => vueAVenir("Historique"),
+  historique: vueHistorique,
   exceptions: () => vueAVenir("Exceptions"),
   reference: () => vueAVenir("Référence d'intégrité"),
   parametres: () => vueAVenir("Paramètres"),
@@ -651,6 +737,7 @@ async function lancer(){
   resultatPret = true;
   dessiner();
   await resoudreActions();
+  await chargerHistorique();
   dessiner();
 }
 
@@ -717,6 +804,14 @@ async function validerRevocation(id){
 
 // resoudreActions demande au backend, pour chaque constat ouvert, l'ecran qui
 // le gouverne et le fichier que ses preuves designent.
+// chargerHistorique relit la liste des analyses conservees. Elle est relue
+// plutot que mise a jour a la main: une analyse ecrite par la tache planifiee
+// pendant que la console est ouverte apparaitrait sinon jamais.
+async function chargerHistorique(){
+  try { historique = await go().Historique() || []; }
+  catch (e) { historique = []; }
+}
+
 async function resoudreActions(){
   destinations = {}; chemins = {}; navigateurs = {};
   if (!bulletin) return;
@@ -760,12 +855,28 @@ document.getElementById("nav").addEventListener("click", e => {
     if (vueActive === "bulletin") resultatPret = false;
     messageConstat = null;
     dessiner();
+    if (vueActive === "historique"){ chargerHistorique().then(dessiner); }
   }
 });
 
 document.getElementById("vue").addEventListener("click", async e => {
   if (e.target.closest("#lancer")) { lancer(); return; }
   if (e.target.closest("#annuler")) { go()?.Annuler(); return; }
+
+  const ligne = e.target.closest("[data-analyse]");
+  if (ligne){
+    try {
+      bulletin = await go().ChargerAnalyse(ligne.dataset.analyse);
+      await resoudreActions();
+      vueActive = "bulletin";
+      constatOuvert = null; formulaireOuvert = null; filtreConstats = "tous";
+      dessiner();
+    } catch (err) {
+      messageConstat = { titre: "Cette analyse n'a pas pu être ouverte.", texte: String(err) };
+      dessiner();
+    }
+    return;
+  }
 
   const filtre = e.target.closest("[data-filtre]");
   if (filtre){
