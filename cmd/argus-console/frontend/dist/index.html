@@ -46,6 +46,15 @@
               color:var(--muted)}
   .nav .badge.alerte{color:var(--crit);border-color:var(--crit)}
   .nav .sep{height:1px;background:var(--line);margin:14px 20px}
+  /* Le temoin est une pastille posee dans l'entree de menu, a droite du mot.
+     L'analyse continue quand on change d'onglet, et rien ne le disait; un bloc
+     separe aurait pris une place que le bandeau n'a pas. */
+  .pastille{margin-left:auto;width:9px;height:9px;flex:0 0 9px;border-radius:50%;
+            background:var(--med);animation:pulse 1.1s ease-in-out infinite}
+  .pastille.pret{background:var(--ok);animation:none;
+                 box-shadow:0 0 0 3px rgba(111,169,127,.18)}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}
+                   50%{opacity:.3;transform:scale(.72)}}
   .nav .foot{margin-top:auto;padding:0 20px;font-size:9px;color:#252B33;line-height:2}
 
   .vue{flex:1;padding:26px 30px;overflow:auto;min-width:0;user-select:text}
@@ -134,6 +143,8 @@
            animation:glisse 1.5s ease-in-out infinite}
   @keyframes glisse{0%{left:-32%}100%{left:100%}}
   .chrono{font-size:10px;letter-spacing:.14em;color:var(--dim)}
+  .etape{font-size:12px;color:var(--pale);margin-top:4px;min-height:18px}
+  .etape em{font-style:normal;color:var(--steel)}
 </style>
 </head>
 <body>
@@ -165,8 +176,11 @@
 let etat = null;
 let bulletin = null;
 let analyseEnCours = false;
-let debutAnalyse = 0;
-let minuterie = null;
+let progression = { enCours: false, etape: "", secondes: 0 };
+// Le mode retenu au lancement, fige pour la duree de l'analyse: changer la
+// bascule pendant qu'elle tourne ne doit pas reecrire ce qui est affiche.
+let eleveEffectif = false;
+let resultatPret = false;
 const options = { rapide: true, eleve: true, profil: "workstation", verifierPaquets: false };
 
 const go = () => window.go?.main?.App;
@@ -279,17 +293,28 @@ function boutons(){
 }
 
 function vueAnalyse(){
-  const s = Math.floor((Date.now() - debutAnalyse) / 1000);
+  const s = progression.secondes || 0;
+  // Le texte dépend du mode, parce que les deux situations n'ont rien à voir.
+  // Avec élévation, l'utilisateur attend peut-être une fenêtre d'autorisation;
+  // sans, il doit savoir ce qu'il ne verra pas dans le résultat.
+  const explication = eleveEffectif
+    ? "L'analyse dispose des privilèges administrateur et voit l'ensemble des réglages."
+    : "L'analyse tourne sans privilèges administrateur. Le chiffrement du disque, l'état de l'antivirus et une partie du registre ne pourront pas être lus, et le rapport le signalera.";
   return `<h2>Analyse en cours</h2>
     <p class="sub">Argus lit les réglages, les fichiers et les processus de cette
        machine. Il ne modifie rien.</p>
     <div class="encours">
-      <h3>Patientez</h3>
-      <p>${options.eleve
-          ? "Windows a demandé votre autorisation pour que l'analyse accède aux réglages protégés. Si la fenêtre ne s'est pas affichée, cherchez-la dans la barre des tâches."
-          : "L'analyse tourne sans privilèges administrateur: certains contrôles, dont BitLocker et une partie du registre, seront limités."}</p>
+      <h3>En cours d'examen</h3>
+      <div class="etape">${progression.etape
+        ? "Argus examine <em>" + progression.etape + "</em>"
+        : "Préparation"}</div>
       <div class="pouls"><i></i></div>
       <div class="chrono">${s} SECONDE${s > 1 ? "S" : ""}</div>
+      <p style="margin-top:16px">${explication}</p>
+      <div class="actions"><button class="btn" id="annuler">ARRÊTER L'ANALYSE</button></div>
+      ${eleveEffectif ? `<p class="chrono" style="margin-top:10px;letter-spacing:0;
+         text-transform:none;font-size:10.5px">Windows redemandera votre autorisation:
+         arrêter un programme administrateur exige les mêmes droits que le lancer.</p>` : ""}
     </div>`;
 }
 
@@ -330,6 +355,22 @@ function dessiner(){
     ? `${bulletin.host.hostname} - analysée le ${new Date(bulletin.finished_at).toLocaleString("fr-FR")}`
     : (etat?.argusTrouve ? "aucune analyse" : "");
 
+  // La pastille se pose sur l'entree BULLETIN, parce que c'est la qu'il faut
+  // revenir: elle indique ou regarder autant que ce qui se passe.
+  const entree = document.querySelector('.nav .item[data-v="bulletin"]');
+  entree.querySelector(".pastille")?.remove();
+  if (progression.enCours){
+    const p = document.createElement("span");
+    p.className = "pastille";
+    p.title = `Analyse en cours - ${progression.etape || "préparation"}`;
+    entree.appendChild(p);
+  } else if (resultatPret && vueActive !== "bulletin"){
+    const p = document.createElement("span");
+    p.className = "pastille pret";
+    p.title = "Analyse terminée, le bulletin est prêt";
+    entree.appendChild(p);
+  }
+
   document.getElementById("pied").innerHTML =
     `ARGUS ${etat?.version || ""}<br>STEELVEIL`;
 }
@@ -339,37 +380,59 @@ function dessiner(){
 async function lancer(){
   if (analyseEnCours) return;
   analyseEnCours = true;
-  debutAnalyse = Date.now();
-  // Le compteur redessine la vue chaque seconde. Sans lui, l'attente se
-  // deroule sur un ecran fige, et rien ne distingue une analyse en cours
-  // d'une application bloquee.
-  minuterie = setInterval(dessiner, 1000);
+  resultatPret = false;
+  eleveEffectif = !!(etat?.elevationDisponible && options.eleve);
+  progression = { enCours: true, etape: "", secondes: 0 };
   dessiner();
   try {
     bulletin = await go().Analyser(options);
   } catch (e) {
-    document.getElementById("vue").innerHTML =
-      `<h2>L'analyse n'a pas abouti</h2>
-       <div class="err"><b>Ce que le système a répondu.</b> ${e}</div>
-       <p class="sub">Si vous avez refusé l'élévation, décochez les privilèges
-          administrateur: l'analyse tournera avec une couverture réduite.</p>
-       ${boutons()}`;
     analyseEnCours = false;
-    clearInterval(minuterie);
+    progression = { enCours: false, etape: "", secondes: 0 };
+    const message = String(e);
+    const abandon = message.includes("abandonn");
+    document.getElementById("vue").innerHTML = abandon
+      ? `<h2>Analyse abandonnée</h2>
+         <p class="sub">Rien n'a été conservé: le rapport en cours d'écriture a été
+            supprimé, et l'historique reste inchangé.</p>
+         ${eleveEffectif ? `<div class="err"><b>Une précision.</b> L'analyse tournait
+            avec les privilèges administrateur, et la console n'en dispose pas. Elle a
+            donc demandé à Windows de l'arrêter, ce qui explique la seconde demande
+            d'autorisation.</div>` : ""}
+         ${boutons()}`
+      : `<h2>L'analyse n'a pas abouti</h2>
+         <div class="err"><b>Ce que le système a répondu.</b> ${message}</div>
+         <p class="sub">Si vous avez refusé l'autorisation, désactivez les privilèges
+            administrateur: l'analyse tournera avec une couverture réduite.</p>
+         ${boutons()}`;
+    dessiner_temoin_seul();
     return;
   }
   analyseEnCours = false;
-  clearInterval(minuterie);
+  progression = { enCours: false, etape: "", secondes: 0 };
+  resultatPret = true;
   dessiner();
+}
+
+// dessiner_temoin_seul rafraichit le bandeau sans toucher a la vue, qui vient
+// d'etre remplacee par un message d'erreur qu'on ne veut pas ecraser.
+function dessiner_temoin_seul(){
+  const t = document.getElementById("temoin");
+  t.className = ""; t.innerHTML = "";
 }
 
 document.getElementById("nav").addEventListener("click", e => {
   const it = e.target.closest(".item");
-  if (it){ vueActive = it.dataset.v; dessiner(); }
+  if (it){
+    vueActive = it.dataset.v;
+    if (vueActive === "bulletin") resultatPret = false;
+    dessiner();
+  }
 });
 
 document.getElementById("vue").addEventListener("click", e => {
   if (e.target.closest("#lancer")) { lancer(); return; }
+  if (e.target.closest("#annuler")) { go()?.Annuler(); return; }
   const c = e.target.closest(".coche");
   if (c){ options[c.dataset.opt] = !options[c.dataset.opt]; dessiner(); }
 });
@@ -385,6 +448,13 @@ window.addEventListener("DOMContentLoaded", async () => {
     clearInterval(attendre);
     etat = await go().EtatInitial();
     bulletin = await go().DernierBulletin();
+    // Le backend pousse l'avancement plutot que l'interface ne l'interroge:
+    // une analyse qui dure passe ainsi son etape en cours sans qu'on ait a
+    // choisir un rythme d'interrogation, toujours soit trop lent soit inutile.
+    window.runtime?.EventsOn("progression", p => {
+      progression = p;
+      if (analyseEnCours) dessiner();
+    });
     dessiner();
   }, 30);
   dessiner();
