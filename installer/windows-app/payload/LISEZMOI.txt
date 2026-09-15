@@ -1,0 +1,11 @@
+Ce repertoire recoit les deux programmes que l'installeur embarque:
+
+  argus.exe           la ligne de commande
+  argus-console.exe   l'application de bureau
+
+Ils y sont deposes par construire.ps1 avant la compilation, et ne sont pas
+versionnes: ce sont des binaires, reproductibles a partir des sources.
+
+Leur absence fait echouer la compilation, et c'est voulu. Un installeur qui se
+compile sans rien a installer produirait un programme qui pose des fichiers
+vides sans jamais s'en plaindre.

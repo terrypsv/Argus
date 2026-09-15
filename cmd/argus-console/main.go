@@ -14,6 +14,7 @@ package main
 
 import (
 	"embed"
+	"os"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
@@ -38,6 +39,12 @@ func main() {
 	// Avant toute fenêtre: passé ce point, Windows a déjà décidé de l'échelle
 	// d'affichage et refuse d'en changer, ce qui rend l'application floue sur
 	// un écran à densité élevée.
+	// Le mode silencieux passe avant tout le reste: la tache planifiee ne doit
+	// voir aucune fenetre, pas meme le temps d'un clignotement.
+	if fini, code := modeTache(); fini {
+		os.Exit(code)
+	}
+
 	declarerConscienceResolution()
 
 	app := NouvelleApp(version)

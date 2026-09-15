@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Installation d'Argus</title>
+<style>
+  :root{
+    --bg:#08090B;--panel:#0B0D10;--panel2:#101318;--line:#171A1F;--line2:#242931;
+    --steel:#5D6A7A;--dim:#39414C;--pale:#E8EDF2;--muted:#68717D;
+    --crit:#C4705E;--med:#C5A33F;--ok:#6FA97F;
+    --mono:'Cascadia Mono','Consolas',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--pale);font-family:var(--mono);
+       font-size:13px;overflow:hidden;user-select:none}
+  ::-webkit-scrollbar{width:8px}
+  ::-webkit-scrollbar-thumb{background:var(--line2)}
+
+  .fen{height:100vh;display:flex;flex-direction:column}
+  .chrome{height:38px;flex:0 0 38px;display:flex;align-items:center;gap:13px;
+          padding:0 15px;border-bottom:1px solid var(--line);--wails-draggable:drag}
+  .mk{font-weight:700;font-size:14px;letter-spacing:-.06em;color:var(--steel)}
+  .mk i{font-style:normal;color:var(--pale)}
+  .ttl{font-size:9.5px;letter-spacing:.22em;color:var(--dim)}
+
+  .corps{flex:1;display:flex;min-height:0}
+  .rail{flex:0 0 196px;border-right:1px solid var(--line);padding:26px 20px;
+        display:flex;flex-direction:column}
+  .nom{font-size:27px;font-weight:700;letter-spacing:-.055em;line-height:1}
+  .nom b{color:var(--steel)}
+  .par{font-size:8.5px;letter-spacing:.24em;color:var(--dim);margin-top:10px}
+  .etapes{margin-top:34px;display:flex;flex-direction:column}
+  .et{display:flex;align-items:center;gap:11px;padding:8px 0;font-size:10px;
+      letter-spacing:.13em;color:var(--dim)}
+  .et .n{font-size:8.5px;width:13px}
+  .et .tr{width:13px;height:1px;background:currentColor;opacity:.5}
+  .et.on{color:var(--pale)}
+  .et.on .tr{width:20px;opacity:1;height:2px}
+  .et.fait{color:var(--steel)}
+  .bas{margin-top:auto;font-size:8.5px;letter-spacing:.16em;color:#252B33;line-height:2.2}
+
+  .vue{flex:1;position:relative;padding:28px 32px;overflow:auto;user-select:text}
+  .vue::before,.vue::after,.c1,.c2{content:"";position:absolute;width:11px;height:11px;
+       pointer-events:none}
+  .vue::before{top:15px;left:17px;border-top:1px solid var(--dim);border-left:1px solid var(--dim)}
+  .vue::after{top:15px;right:17px;border-top:1px solid var(--dim);border-right:1px solid var(--dim)}
+  .c1{bottom:15px;left:17px;border-bottom:1px solid var(--dim);border-left:1px solid var(--dim)}
+  .c2{bottom:15px;right:17px;border-bottom:1px solid var(--dim);border-right:1px solid var(--dim)}
+
+  .tag{font-size:8.5px;letter-spacing:.2em;color:var(--steel);margin-bottom:11px}
+  h2{font-size:19px;font-weight:500;letter-spacing:-.02em;margin-bottom:7px}
+  .lead{font-size:11.5px;color:var(--muted);line-height:1.85;margin-bottom:18px;max-width:520px}
+
+  .opt{border:1px solid var(--line);background:var(--panel);padding:13px 15px;
+       margin-bottom:7px;display:flex;gap:13px;align-items:flex-start;cursor:pointer;
+       transition:border-color .14s,background .14s}
+  .opt:hover{border-color:var(--line2)}
+  .opt.sel{border-color:var(--pale);background:var(--panel2)}
+  .pt{flex:0 0 7px;height:7px;border:1px solid var(--steel);transform:rotate(45deg);
+      margin-top:5px}
+  .opt.sel .pt{background:var(--pale);border-color:var(--pale)}
+  .opt .t{font-size:12px;line-height:1.5;flex:1}
+  .opt .t small{display:block;color:var(--muted);font-size:10.5px;margin-top:5px;
+                line-height:1.75}
+  .opt .taille{font-size:10px;color:var(--dim);flex:0 0 auto;padding-top:2px}
+
+  .kv{display:flex;font-size:11.5px;padding:9px 0;border-bottom:1px solid var(--line);gap:16px}
+  .kv .k{flex:0 0 130px;color:var(--dim);letter-spacing:.13em;font-size:9px;padding-top:2px}
+  .kv .v{color:var(--pale);word-break:break-all}
+  .kv .v.a{color:var(--steel)}
+
+  input[type=text]{width:100%;font-family:inherit;font-size:11.5px;background:var(--bg);
+       border:1px solid var(--line2);color:var(--pale);padding:9px 11px;outline:none}
+  input[type=text]:focus{border-color:var(--steel)}
+
+  .coche{display:flex;align-items:center;gap:10px;font-size:11px;color:var(--dim);
+         cursor:pointer;padding:9px 0}
+  .coche:hover{color:var(--muted)}
+  .coche.on{color:var(--pale)}
+  .coche b{width:30px;height:15px;border:1px solid var(--line2);display:inline-block;
+           position:relative;flex:0 0 30px}
+  .coche b::after{content:"";position:absolute;top:2px;left:2px;width:9px;height:9px;
+                  background:var(--dim);transition:left .12s,background .12s}
+  .coche.on b{border-color:var(--pale)}
+  .coche.on b::after{left:17px;background:var(--pale)}
+
+  .avert{border-left:2px solid var(--med);background:var(--panel);padding:12px 15px;
+         font-size:11px;line-height:1.8;color:var(--muted);margin-top:14px}
+  .avert b{color:var(--pale);font-weight:500}
+  .grave{border-left-color:var(--crit)}
+  .bien{border-left-color:var(--ok)}
+
+  .journal{border:1px solid var(--line);background:var(--panel);padding:14px;
+           font-size:10.5px;color:var(--muted);line-height:2;height:220px;
+           overflow:auto;margin-top:16px}
+  .journal div::before{content:"- ";color:var(--dim)}
+  .pouls{height:3px;background:var(--line2);margin-top:16px;overflow:hidden;position:relative}
+  .pouls i{position:absolute;top:0;left:0;height:100%;width:32%;background:var(--steel);
+           animation:glisse 1.5s ease-in-out infinite}
+  @keyframes glisse{0%{left:-32%}100%{left:100%}}
+
+  .big{font-size:44px;font-weight:700;letter-spacing:-.07em;color:var(--steel);
+       margin-bottom:12px}
+  .big i{font-style:normal;color:var(--pale)}
+  code{background:var(--panel);border:1px solid var(--line);padding:2px 8px;
+       font-size:11px;color:var(--pale)}
+  .cmd{line-height:2.5;font-size:10.5px;color:var(--dim);margin-top:14px}
+
+  .pied{flex:0 0 56px;border-top:1px solid var(--line);display:flex;align-items:center;
+        justify-content:flex-end;gap:9px;padding:0 24px}
+  .btn{font-family:inherit;font-size:9.5px;letter-spacing:.17em;padding:11px 24px;
+       border:1px solid var(--dim);color:var(--muted);background:transparent;cursor:pointer;
+       transition:background .16s,border-color .16s,color .16s}
+  .btn:not(.p):hover:not(:disabled){border-color:var(--steel);color:var(--pale)}
+  .btn:disabled{opacity:.35;cursor:default}
+  .btn.p{background:var(--pale);color:var(--bg);border-color:var(--pale);font-weight:600}
+  .btn.p:hover:not(:disabled){background:var(--steel);border-color:var(--steel);color:var(--bg)}
+  .btn.danger{border-color:var(--crit);color:var(--crit)}
+  .btn.danger:hover:not(:disabled){background:var(--crit);color:var(--bg)}
+</style>
+</head>
+<body>
+<div class="fen">
+  <div class="chrome">
+    <span class="mk">_<i>.</i></span>
+    <span class="ttl" id="titre">ARGUS - INSTALLATION</span>
+  </div>
+  <div class="corps">
+    <div class="rail">
+      <div class="nom">argus<b>_.</b></div>
+      <div class="par">STEELVEIL</div>
+      <div class="etapes" id="etapes"></div>
+      <div class="bas" id="bas"></div>
+    </div>
+    <div class="vue" id="vue"><span class="c1"></span><span class="c2"></span></div>
+  </div>
+  <div class="pied" id="pied"></div>
+</div>
+
+<script>
+const go = () => window.go?.main?.App;
+
+let etat = null;
+let version = "";
+let ecran = "licence";
+let journal = [];
+let enCours = false;
+let termine = false;
+let erreur = null;
+
+const choix = {
+  repertoire: "",
+  console: true,
+  path: true,
+  raccourci: true,
+  frequence: "hebdomadaire",
+  effacerDonnees: false,
+};
+
+const ETAPES = ["licence", "composants", "cible", "surveillance", "installation", "pret"];
+const NOMS = {
+  licence: "LICENCE", composants: "COMPOSANTS", cible: "CIBLE",
+  surveillance: "SURVEILLANCE", installation: "INSTALLATION", pret: "PRÊT",
+};
+
+function etapesVisibles(){
+  // La surveillance ne concerne que l'application de bureau: proposer une
+  // etape qui sera sautee donnerait une progression qui ment.
+  return ETAPES.filter(e => e !== "surveillance" || choix.console);
+}
+
+function dessinerRail(){
+  const liste = etapesVisibles();
+  const pos = liste.indexOf(ecran);
+  document.getElementById("etapes").innerHTML = liste.map((e, i) => {
+    const cls = e === ecran ? "on" : (pos >= 0 && i < pos ? "fait" : "");
+    return `<div class="et ${cls}"><span class="n">${String(i + 1).padStart(2, "0")}</span>
+      <span class="tr"></span>${NOMS[e]}</div>`;
+  }).join("");
+  document.getElementById("bas").innerHTML =
+    `${version || ""}<br>WIN - X64`;
+}
+
+// --- ecrans ---------------------------------------------------------------
+
+const V = {};
+
+V.licence = () => `
+  <div class="tag">LICENCE</div>
+  <h2>Argus</h2>
+  <p class="lead">Argus analyse la posture de sécurité d'une machine et la restitue en
+     deux notes: le durcissement, c'est-à-dire les portes que vous n'avez pas fermées, et
+     l'intégrité, c'est-à-dire les traces que quelqu'un est déjà passé.</p>
+  <div class="avert"><b>Logiciel propriétaire.</b> Copyright (c) 2026 Terry Passave.
+     Tous droits réservés. Aucune licence, expresse ou implicite, n'est accordée.
+     L'installation vaut acceptation de ces conditions.</div>
+  <div class="avert bien"><b>Ce que ce programme ne fait pas.</b> Argus lit des réglages,
+     des fichiers et des processus. Il ne modifie rien sur votre machine, et rien de ce
+     qu'il observe ne quitte cet ordinateur.</div>`;
+
+V.composants = () => `
+  <div class="tag">COMPOSANTS</div>
+  <h2>Que voulez-vous installer&nbsp;?</h2>
+  <p class="lead">Le même moteur d'analyse, deux façons de s'en servir.</p>
+  <div class="opt ${choix.console ? "" : "sel"}" data-choix="console" data-valeur="0">
+    <span class="pt"></span>
+    <span class="t">Version légère, ligne de commande
+      <small>Pour un terminal, une intégration continue ou une tâche planifiée
+      écrite par vos soins. Aucune fenêtre, aucun réglage à retenir.</small></span>
+    <span class="taille">~9 Mo</span>
+  </div>
+  <div class="opt ${choix.console ? "sel" : ""}" data-choix="console" data-valeur="1">
+    <span class="pt"></span>
+    <span class="t">Installation complète, avec la Console
+      <small>La ligne de commande, plus une application qui montre le bulletin,
+      l'historique des analyses, ce qui a changé depuis la dernière, et où régler
+      chaque point relevé. Pour qui n'a pas envie d'apprendre des commandes.</small></span>
+    <span class="taille">~26 Mo</span>
+  </div>`;
+
+V.cible = () => {
+  const protege = etat && choix.repertoire && etat.protegeCalc;
+  return `
+  <div class="tag">CIBLE</div>
+  <h2>Où installer&nbsp;?</h2>
+  <p class="lead">Le programme s'installe pour tous les utilisateurs de cette machine.</p>
+  <input type="text" id="rep" value="${choix.repertoire}">
+  <label class="coche ${choix.path ? "on" : ""}" data-bascule="path"><b></b>
+    Rendre <code>argus</code> appelable depuis n'importe quel terminal</label>
+  ${choix.console ? `<label class="coche ${choix.raccourci ? "on" : ""}" data-bascule="raccourci"><b></b>
+    Ajouter la Console au menu Démarrer</label>` : ""}
+  ${protege === false ? `<div class="avert grave"><b>Cet emplacement n'est pas protégé.</b>
+     Un programme appelable de partout mais logé dans un dossier modifiable par
+     n'importe quel processus de votre session peut être remplacé à votre insu. Tout ce
+     qui tape la commande exécuterait alors autre chose. Program Files, lui, n'est
+     modifiable que par un administrateur.</div>` : ""}`;
+};
+
+V.surveillance = () => `
+  <div class="tag">SURVEILLANCE</div>
+  <h2>Analyser régulièrement</h2>
+  <p class="lead">Une analyse unique est une photographie. Ce qui compte en sécurité,
+     c'est ce qui change: un port qui s'ouvre, un programme qui se lance au démarrage,
+     une empreinte qui bouge.</p>
+  ${[["hebdomadaire", "Chaque semaine", "Le lundi à 9 heures. Le bon rythme pour un poste ordinaire."],
+     ["quotidienne", "Chaque jour", "À 9 heures. Pour une machine exposée ou sensible."],
+     ["", "Ne rien planifier", "Vous lancerez les analyses vous-même depuis la Console."]]
+    .map(([v, t, d]) => `
+    <div class="opt ${choix.frequence === v ? "sel" : ""}" data-choix="frequence" data-valeur="${v}">
+      <span class="pt"></span><span class="t">${t}<small>${d}</small></span>
+    </div>`).join("")}
+  <div class="avert"><b>Ce que fait cette tâche.</b> Elle lance une analyse sans rien
+     afficher et conserve son rapport dans votre profil. Rien n'est envoyé nulle part.
+     Elle ne s'exécute que lorsque votre session est ouverte, et vous pourrez la retirer
+     à tout moment depuis les paramètres de la Console.</div>`;
+
+V.installation = () => `
+  <div class="tag">INSTALLATION</div>
+  <h2>${termine ? "Terminé" : "Installation en cours"}</h2>
+  <p class="lead">${termine
+    ? "Tout est en place."
+    : "Les fichiers sont posés, leurs empreintes enregistrées, et le programme déclaré à Windows."}</p>
+  ${erreur ? `<div class="avert grave"><b>L'installation n'a pas abouti.</b> ${erreur}</div>` : ""}
+  <div class="journal" id="journal">${journal.map(l => `<div>${l}</div>`).join("")}</div>
+  ${enCours ? `<div class="pouls"><i></i></div>` : ""}`;
+
+V.pret = () => `
+  <div class="big">_<i>.</i></div>
+  <h2>Argus est prêt</h2>
+  <p class="lead">${choix.path
+    ? "La commande est accessible depuis n'importe quel terminal. Ouvrez une NOUVELLE fenêtre pour que le PATH soit pris en compte."
+    : "Le programme est installé. Il n'a pas été ajouté au PATH: appelez-le par son chemin complet."}</p>
+  <div class="kv"><span class="k">EMPLACEMENT</span><span class="v">${choix.repertoire}</span></div>
+  ${choix.console ? `<div class="kv"><span class="k">CONSOLE</span><span class="v a">installée</span></div>` : ""}
+  ${choix.console && choix.frequence ? `<div class="kv"><span class="k">SURVEILLANCE</span>
+    <span class="v a">analyse ${choix.frequence}</span></div>` : ""}
+  <div class="cmd">
+    <code>argus baseline</code> &nbsp; enregistrer la référence d'intégrité<br>
+    <code>argus</code> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; analyser la machine
+  </div>
+  <div class="avert"><b>Prenez la référence pendant que vous jugez la machine saine.</b>
+     C'est à elle que chaque analyse comparera vos fichiers critiques, et elle ne vaut
+     que ce que vaut ce jugement.</div>`;
+
+// --- maintenance ----------------------------------------------------------
+
+V.accueil = () => `
+  <div class="tag">ARGUS ${etat?.version || ""} EST DÉJÀ INSTALLÉ</div>
+  <h2>Que voulez-vous faire&nbsp;?</h2>
+  <div class="kv"><span class="k">EMPLACEMENT</span><span class="v">${etat?.repertoire || ""}</span></div>
+  <div class="kv"><span class="k">CONSOLE</span><span class="v">${etat?.avecConsole ? "installée" : "non installée"}</span></div>
+  <div class="kv"><span class="k">SURVEILLANCE</span><span class="v">${etat?.surveillance || "aucune"}</span></div>
+  <div style="margin-top:18px">
+    <div class="opt" data-aller="composants"><span class="pt"></span>
+      <span class="t">Mettre à jour vers ${version}
+        <small>Repose les programmes et conserve vos analyses, votre référence et vos
+        constats assumés.</small></span></div>
+    <div class="opt" data-action="reparer"><span class="pt"></span>
+      <span class="t">Vérifier et réparer
+        <small>Compare chaque fichier installé à son empreinte d'origine et restaure
+        ce qui manque ou a changé, sans rien télécharger.</small></span></div>
+    <div class="opt" data-aller="desinstaller"><span class="pt"></span>
+      <span class="t">Désinstaller
+        <small>Retire les programmes, le raccourci, la tâche planifiée et l'entrée
+        du PATH.</small></span></div>
+  </div>`;
+
+V.desinstaller = () => `
+  <div class="tag">DÉSINSTALLATION</div>
+  <h2>Retirer Argus de cette machine</h2>
+  <p class="lead">Les programmes, le raccourci, la tâche planifiée et l'entrée du PATH
+     seront retirés.</p>
+  <div class="avert bien"><b>Vos données ne sont pas touchées.</b> Vos analyses, votre
+     référence d'intégrité et vos constats assumés restent dans votre profil. La
+     référence fige un jugement porté un jour précis et les exceptions sont des décisions
+     motivées: aucune des deux ne se reconstitue.</div>
+  <div class="kv" style="margin-top:14px"><span class="k">CONSERVÉ DANS</span>
+    <span class="v">${dossierDonnees}</span></div>
+  <label class="coche ${choix.effacerDonnees ? "on" : ""}" data-bascule="effacerDonnees"><b></b>
+    Supprimer aussi ces données</label>
+  ${choix.effacerDonnees ? `<div class="avert grave"><b>Cette suppression est définitive.</b>
+     L'historique, la référence et les motifs que vous avez écrits disparaîtront.</div>` : ""}`;
+
+V.verification = () => `
+  <div class="tag">VÉRIFICATION</div>
+  <h2>${termine ? "Terminé" : "Vérification en cours"}</h2>
+  <p class="lead">Chaque fichier installé est comparé à l'empreinte enregistrée lors de
+     sa pose, et restauré depuis la copie embarquée dans cet installeur s'il diffère.</p>
+  ${erreur ? `<div class="avert grave"><b>La réparation n'a pas abouti.</b> ${erreur}</div>` : ""}
+  <div class="journal">${journal.map(l => `<div>${l}</div>`).join("")}</div>
+  ${enCours ? `<div class="pouls"><i></i></div>` : ""}`;
+
+V.retire = () => `
+  <div class="big">_<i>.</i></div>
+  <h2>${erreur ? "Désinstallation incomplète" : "Argus a été retiré"}</h2>
+  ${erreur
+    ? `<div class="avert grave">${erreur}</div>
+       <p class="lead" style="margin-top:14px">Ce qui n'a pas pu être supprimé est nommé
+          ci-dessus plutôt que passé sous silence.</p>`
+    : `<p class="lead">Les programmes, le raccourci, la tâche planifiée et l'entrée du
+          PATH ont été retirés.</p>
+       ${choix.effacerDonnees
+         ? `<div class="avert">Vos données ont également été supprimées, comme demandé.</div>`
+         : `<div class="avert bien">Vos analyses, votre référence et vos constats assumés
+            sont conservés dans votre profil.</div>`}`}
+  <div class="journal" style="height:150px">${journal.map(l => `<div>${l}</div>`).join("")}</div>`;
+
+// --- pied de page ---------------------------------------------------------
+
+function pied(){
+  const b = (id, texte, cls = "", off = false) =>
+    `<button class="btn ${cls}" data-bouton="${id}" ${off ? "disabled" : ""}>${texte}</button>`;
+
+  switch (ecran){
+    case "licence":     return b("quitter", "ANNULER") + b("suivant", "ACCEPTER ET CONTINUER", "p");
+    case "composants":  return b("retour", "RETOUR") + b("suivant", "CONTINUER", "p");
+    case "cible":       return b("retour", "RETOUR") + b("suivant", "CONTINUER", "p");
+    case "surveillance":return b("retour", "RETOUR") + b("installer", "INSTALLER", "p");
+    case "installation":return termine
+                          ? b("suivant", "CONTINUER", "p")
+                          : (erreur ? b("quitter", "FERMER") : b("attendre", "INSTALLATION...", "p", true));
+    case "pret":        return (choix.console ? b("ouvrir", "OUVRIR LA CONSOLE") : "") +
+                               b("quitter", "TERMINER", "p");
+    case "accueil":     return b("quitter", "FERMER");
+    case "desinstaller":return b("retour", "RETOUR") + b("confirmerRetrait", "DÉSINSTALLER", "danger");
+    case "verification":return enCours ? b("attendre", "EN COURS...", "p", true)
+                                       : b("quitter", "FERMER", "p");
+    case "retire":      return b("quitter", "FERMER", "p");
+  }
+  return "";
+}
+
+// --- rendu ----------------------------------------------------------------
+
+let dossierDonnees = "";
+
+function dessiner(){
+  const v = document.getElementById("vue");
+  v.innerHTML = `<span class="c1"></span><span class="c2"></span>` + (V[ecran] ? V[ecran]() : "");
+  document.getElementById("pied").innerHTML = pied();
+  dessinerRail();
+  const j = document.getElementById("journal");
+  if (j) j.scrollTop = j.scrollHeight;
+  document.getElementById("titre").textContent =
+    ecran === "desinstaller" || ecran === "retire"
+      ? "ARGUS - DÉSINSTALLATION" : "ARGUS - INSTALLATION";
+}
+
+// --- actions --------------------------------------------------------------
+
+function suivantDepuis(e){
+  const liste = etapesVisibles();
+  const i = liste.indexOf(e);
+  return i >= 0 && i + 1 < liste.length ? liste[i + 1] : null;
+}
+
+function precedentDepuis(e){
+  const liste = etapesVisibles();
+  const i = liste.indexOf(e);
+  return i > 0 ? liste[i - 1] : "accueil";
+}
+
+async function installer(){
+  ecran = "installation"; enCours = true; termine = false; journal = []; erreur = null;
+  dessiner();
+  const rep = document.getElementById("rep")?.value || choix.repertoire;
+  try {
+    await go().Installer(rep || choix.repertoire, {
+      console: choix.console,
+      ajouterPath: choix.path,
+      raccourci: choix.raccourci,
+      frequence: choix.console ? choix.frequence : "",
+    });
+  } catch (e) {
+    erreur = String(e); enCours = false; dessiner(); return;
+  }
+  enCours = false; termine = true; dessiner();
+}
+
+async function reparer(){
+  ecran = "verification"; enCours = true; termine = false; journal = []; erreur = null;
+  dessiner();
+  try { await go().Reparer(); }
+  catch (e) { erreur = String(e); }
+  enCours = false; termine = true; dessiner();
+}
+
+async function desinstaller(){
+  ecran = "verification"; enCours = true; termine = false; journal = []; erreur = null;
+  dessiner();
+  try { await go().Desinstaller(choix.effacerDonnees); }
+  catch (e) { erreur = String(e); }
+  enCours = false; termine = true; ecran = "retire"; dessiner();
+}
+
+document.addEventListener("click", async e => {
+  const opt = e.target.closest("[data-choix]");
+  if (opt){
+    const cle = opt.dataset.choix;
+    const val = opt.dataset.valeur;
+    choix[cle] = cle === "console" ? val === "1" : val;
+    dessiner(); return;
+  }
+
+  const bas = e.target.closest("[data-bascule]");
+  if (bas){ choix[bas.dataset.bascule] = !choix[bas.dataset.bascule]; dessiner(); return; }
+
+  const aller = e.target.closest("[data-aller]");
+  if (aller){ ecran = aller.dataset.aller; dessiner(); return; }
+
+  const act = e.target.closest("[data-action]");
+  if (act && act.dataset.action === "reparer"){ await reparer(); return; }
+
+  const bt = e.target.closest("[data-bouton]");
+  if (!bt) return;
+
+  switch (bt.dataset.bouton){
+    case "quitter": go()?.Quitter(); break;
+    case "retour":
+      // Le champ de repertoire est relu avant de quitter l'ecran: sans cela une
+      // saisie non validee serait perdue en revenant dessus.
+      if (ecran === "cible"){
+        choix.repertoire = document.getElementById("rep")?.value || choix.repertoire;
+      }
+      ecran = (ecran === "desinstaller") ? "accueil" : precedentDepuis(ecran);
+      dessiner();
+      break;
+    case "suivant": {
+      if (ecran === "cible"){
+        choix.repertoire = document.getElementById("rep")?.value || choix.repertoire;
+        try { etat.protegeCalc = await go().EstProtege(choix.repertoire); } catch (e) {}
+      }
+      const s = suivantDepuis(ecran);
+      if (s) ecran = s;
+      dessiner();
+      break;
+    }
+    case "installer": await installer(); break;
+    case "confirmerRetrait": await desinstaller(); break;
+    case "ouvrir": try { await go().OuvrirConsole(); } catch (e) {} go()?.Quitter(); break;
+  }
+});
+
+// --- demarrage ------------------------------------------------------------
+
+window.addEventListener("DOMContentLoaded", () => {
+  const attendre = setInterval(async () => {
+    if (!go()) return;
+    clearInterval(attendre);
+
+    version = await go().Version();
+    etat = await go().EtatMachine();
+    dossierDonnees = await go().DossierDonnees();
+    choix.repertoire = etat.repertoire || await go().RepertoireParDefaut();
+    choix.console = etat.installe ? etat.avecConsole : true;
+    choix.path = etat.installe ? etat.dansPath : true;
+    if (etat.surveillance && etat.surveillance !== "inconnue"){
+      choix.frequence = etat.surveillance;
+    }
+    etat.protegeCalc = etat.protege;
+
+    const d = await go().Depart();
+    if (d === "desinstaller") ecran = "desinstaller";
+    else if (d === "reparer") { dessiner(); await reparer(); return; }
+    else if (etat.installe) ecran = "accueil";
+
+    // Le journal de progression vient du programme, pas d'une estimation: ce
+    // qui s'affiche a reellement eu lieu.
+    window.runtime?.EventsOn("avance", l => {
+      journal.push(l);
+      if (ecran === "installation" || ecran === "verification") dessiner();
+    });
+
+    dessiner();
+  }, 30);
+  dessiner();
+});
+</script>
+</body>
+</html>
