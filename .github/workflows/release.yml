@@ -174,3 +174,76 @@ jobs:
           shasum -a 256 *.pkg > SHA256SUMS-macos.txt
           cat SHA256SUMS-macos.txt
           gh release upload "${GITHUB_REF_NAME}" *.pkg SHA256SUMS-macos.txt
+
+  # Programmes Windows. La console et l'installeur sont construits ici parce
+  # qu'ils n'existaient nulle part ailleurs: sans cette tache, la seule facon de
+  # les obtenir etait de compiler le depot.
+  paquets-windows:
+    name: Console et installeur Windows
+    needs: release
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+
+      - name: construire la console
+        run: |
+          $version = "${env:GITHUB_REF_NAME}"
+          $date = (Get-Date).ToString("yyyy-MM-dd")
+          Set-Location cmd/argus-console
+          go mod tidy
+          go build -tags "desktop,production" `
+                   -ldflags "-H windowsgui -X main.version=$version -X main.dateCompilation=$date" `
+                   -o ../../dist/argus-console.exe .
+          if ($LASTEXITCODE -ne 0) { throw "la compilation de la console a echoue" }
+
+      - name: construire l'installeur
+        run: |
+          $version = "${env:GITHUB_REF_NAME}"
+          $date = (Get-Date).ToString("yyyy-MM-dd")
+          $racine = (Get-Location).Path
+
+          # L'installeur embarque les deux programmes: ils doivent exister avant
+          # qu'il ne compile, sinon la directive d'inclusion echoue.
+          New-Item -ItemType Directory -Force -Path installer/windows-app/payload | Out-Null
+          go build -ldflags "-X github.com/terrypsv/Argus/internal/engine.Version=$version" `
+                   -o installer/windows-app/payload/argus.exe .
+          if ($LASTEXITCODE -ne 0) { throw "la compilation d'argus a echoue" }
+
+          Set-Location cmd/argus-console
+          go build -tags "desktop,production" `
+                   -ldflags "-H windowsgui -X main.version=$version -X main.dateCompilation=$date" `
+                   -o "$racine/installer/windows-app/payload/argus-console.exe" .
+          if ($LASTEXITCODE -ne 0) { throw "la compilation de la console a echoue" }
+
+          Set-Location "$racine/installer/windows-app"
+          if (-not (Test-Path rsrc_windows_amd64.syso)) {
+            throw "les ressources Windows manquent: sans elles l'installeur ne demanderait pas l'elevation"
+          }
+          go mod tidy
+          go build -tags "desktop,production" `
+                   -ldflags "-H windowsgui -X main.version=$version" `
+                   -o "$racine/dist/argus-installeur.exe" .
+          if ($LASTEXITCODE -ne 0) { throw "la compilation de l'installeur a echoue" }
+
+      - name: verifier les versions tamponnees
+        run: |
+          Get-ChildItem dist | Select-Object Name, Length
+          $sortie = & ./dist/argus-console.exe --version 2>&1
+          Write-Host $sortie
+
+      - name: empreintes et publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          Set-Location dist
+          Get-FileHash argus-console.exe, argus-installeur.exe -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } |
+            Set-Content SHA256SUMS-windows.txt
+          Get-Content SHA256SUMS-windows.txt
+          gh release upload "${env:GITHUB_REF_NAME}" argus-console.exe argus-installeur.exe SHA256SUMS-windows.txt
