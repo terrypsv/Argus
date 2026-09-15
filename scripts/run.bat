@@ -21,9 +21,14 @@ if not exist "argus.exe" (
     )
 )
 
+rem La reference n'est pas creee automatiquement, et c'est delibere: la prendre
+rem revient a declarer la machine saine. Sur un hote deja compromis, une
+rem reference posee sans verification enregistre l'alteration comme legitime.
 if not exist "argus-baseline.json" (
-    echo Aucune baseline d integrite trouvee, creation...
-    argus.exe baseline
+    echo Note: aucune reference d integrite sur cette machine.
+    echo       Les controles d integrite n auront rien a comparer.
+    echo       Pour la prendre, quand vous jugez la machine saine:
+    echo         argus.exe baseline
     echo.
 )
 
