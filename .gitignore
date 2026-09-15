@@ -43,3 +43,8 @@ cmd/argus-console/argus-console.exe
 cmd/argus-console/argus.exe
 cmd/argus-console/build/bin/
 cmd/argus-console/frontend/wailsjs/
+
+# installeur: binaires embarques et sortie de compilation
+installer/windows-app/payload/*.exe
+installer/windows-app/argus-installeur.exe
+installer/windows-app/build/

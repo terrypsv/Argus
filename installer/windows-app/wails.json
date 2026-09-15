@@ -1,0 +1,13 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "argus-installeur",
+  "outputfilename": "argus-installeur",
+  "frontend:dir": "frontend",
+  "author": { "name": "Terry Passave" },
+  "info": {
+    "companyName": "Steelveil",
+    "productName": "Installation d'Argus",
+    "productIdentifier": "com.steelveil.argus.installeur",
+    "copyright": "Copyright (c) 2026 Terry Passave. Tous droits reserves."
+  }
+}
