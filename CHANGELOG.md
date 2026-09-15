@@ -11,37 +11,59 @@ de version décrit une conséquence.
 
 ## [Non publié]
 
+## [1.3.0] - 2026-09-15
+
+### Ajouté
+
+- L'outil s'exprime entièrement en français: l'aide, l'en-tête, le verdict, les
+  intitulés de catégories, les soixante-cinq contrôles des trois systèmes et la
+  comparaison de deux analyses. Les niveaux de gravité restent en anglais, ils
+  sont le vocabulaire des CVE et des référentiels que l'on consulte ensuite.
+- Un fichier système modifié est désormais confronté à sa signature. Un binaire
+  qui change en gardant une signature d'éditeur valide vient d'une mise à jour;
+  le même binaire modifié et non signé n'en vient pas. Trois constats en
+  découlent, parce qu'ils appellent trois réactions: traiter la machine comme
+  compromise, reprendre la référence, ou aller vérifier soi-même.
+- Une console de bureau pour Windows, pour qui n'a pas envie d'apprendre des
+  commandes. Elle montre le bulletin, les constats et où les régler, ce qui a
+  changé depuis la dernière analyse, l'historique des notes dans le temps, les
+  constats assumés et leurs échéances, la référence d'intégrité et les
+  paramètres. C'est ce que la ligne de commande ne pouvait pas faire: elle
+  produit des rapports, elle ne les accumule jamais.
+- Un installeur Windows. Il pose la ligne de commande seule ou avec la console,
+  propose une analyse périodique, et sait ensuite vérifier, réparer et
+  désinstaller. Sa charge est embarquée, non téléchargée: on ne va pas chercher
+  des binaires sur Internet pendant qu'on répare une machine dont on doute.
+- Paquet Debian et paquet macOS, avec page de manuel et désinstalleur.
+- `argus diff --json` publie la comparaison dans un format lisible par un autre
+  programme, un tableau de bord ou un SIEM.
+- Un journal des modifications, dont ceci est la première entrée écrite avant
+  publication plutôt qu'après.
+
 ### Modifié
 
-- L'outil s'exprime entièrement en français : l'aide, l'en-tête, le verdict, les
-  intitulés de catégories et les soixante-cinq contrôles des trois systèmes.
-  Auparavant un même écran mélangeait deux langues, un seul contrôle étant en
-  français et tous les autres en anglais.
-- Les niveaux de gravité restent en anglais. `CRITICAL`, `HIGH`, `MEDIUM` et
-  `LOW` sont le vocabulaire des CVE et des référentiels, et les traduire ferait
-  perdre la correspondance avec les sources que l'opérateur consulte ensuite.
-- Les intitulés de catégories sont traduits à l'affichage seulement. Le champ
-  `Category` sert de clé dans le JSON et le Markdown, et `argus diff` compare
-  deux rapports sur ces clés : traduire la donnée rendrait incomparable un
-  rapport pris avant avec un rapport pris après.
-- La vérification continue tient en un seul workflow. Sur une demande de fusion,
-  Linux seul plus une compilation croisée vers Windows et macOS ; sur `main` et
-  sur les étiquettes, les trois systèmes. Deux workflows lançaient jusqu'ici le
-  même travail, et le cycle complet passe de soixante-six à dix-huit minutes.
+- Les fichiers de configuration ne sont plus jugés sur leur signature. Une
+  référence d'intégrité surveille des binaires et des fichiers de configuration
+  côte à côte, et `hosts` ou `sudoers` n'en portent jamais: les juger ainsi
+  levait une alerte critique sur toute machine dont ces fichiers ont été édités
+  un jour.
+- La ponctuation décorative de la sortie cède la place au tiret et à la flèche
+  écrite. Elles se lisent partout, se retapent au clavier, et se copient dans un
+  ticket sans se transformer.
+- La vérification continue tient en un seul workflow: Linux sur chaque demande
+  de fusion, les trois systèmes sur la branche principale. Deux workflows
+  lançaient jusqu'ici le même travail.
 
 ### Corrigé
 
-- Les traits, puces, flèches et blocs qui composent le rapport s'affichaient en
-  caractères de remplacement. Cent six caractères étaient abîmés dans les
-  sources elles-mêmes, écrits en UTF-8 puis relus comme une page de code
-  héritée. Ils sont réécrits en points de code Unicode, que le compilateur lit
-  identiquement quel que soit l'encodage du fichier.
-- La console Windows bascule en UTF-8 au démarrage, faute de quoi une console en
-  page de code héritée rendait les accents en caractères de remplacement.
-- Deux commandes de l'aide étaient collées sur la même ligne, un retour à la
-  ligne n'ayant pas été interprété.
-- Un binaire de dix mégaoctets avait été committé par mégarde ; les binaires
-  compilés localement sont désormais ignorés.
+- Les traits, puces et blocs du rapport s'affichaient en caractères de
+  remplacement: cent six caractères étaient abîmés dans les sources elles-mêmes,
+  écrits en UTF-8 puis relus comme une page de code héritée.
+- La console Windows bascule en UTF-8 au démarrage, sans quoi les accents
+  devenaient illisibles.
+- Le tamponnage de version visait un chemin de module obsolète. Go n'échoue pas
+  sur une cible inexistante, il l'ignore: la prochaine version aurait publié des
+  binaires se déclarant `dev`. Une étape le vérifie désormais avant publication.
 
 ## [1.2.1] - 2026-08-26
 
