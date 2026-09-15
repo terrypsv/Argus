@@ -234,6 +234,29 @@ L'application de bureau et l'installeur sont des **modules Go distincts**, sous
 seuls, ce qui préserve la promesse d'un moteur sans dépendance tierce. Chacun a
 son script `construire.ps1`.
 
+### Depuis les sources, sans installer
+
+Trois scripts compilent et lancent l'outil sur place, pour essayer sans rien
+poser sur la machine :
+
+```bash
+./scripts/build.sh          # compile pour les cinq cibles, dans ./dist
+./scripts/run.sh            # compile si besoin, passe en sudo, analyse
+```
+
+```powershell
+.\scripts\run.ps1            # compile et analyse
+.\scripts\run.ps1 -Baseline  # enregistre la référence d'intégrité
+.\scripts\run.bat            # équivalent en double-clic, s'élève tout seul
+```
+
+Aucun d'eux ne prend la référence d'intégrité de sa propre initiative. Ils
+signalent son absence et donnent la commande : la prendre revient à déclarer la
+machine saine, et ce jugement n'appartient pas à un script.
+
+Les binaires produits ainsi rapportent la version `dev`. Le numéro est injecté
+par le workflow de publication depuis l'étiquette Git.
+
 ---
 
 ## Utilisation
