@@ -136,6 +136,25 @@
        font-size:11.5px;line-height:1.8;color:var(--muted);margin-bottom:20px}
   .err b{color:var(--pale);font-weight:500}
   .attente{font-size:11px;color:var(--muted)}
+  /* --- changements --- */
+  .ecart{display:flex;gap:22px;margin-bottom:20px}
+  .ecart .bloc{flex:1;border:1px solid var(--line);background:var(--panel);padding:16px 18px}
+  .ecart .lbl{font-size:9.5px;letter-spacing:.18em;color:var(--muted)}
+  .ecart .chiffres{font-size:26px;font-weight:700;letter-spacing:-.03em;margin-top:8px;
+                   display:flex;align-items:baseline;gap:10px}
+  .ecart .delta{font-size:13px;font-weight:400}
+  .ecart .stable{color:var(--dim)}
+  .fam{font-size:9px;letter-spacing:.18em;margin:22px 0 9px;padding-bottom:7px;
+       border-bottom:1px solid var(--line)}
+  .chg{display:flex;gap:14px;padding:12px 15px;border:1px solid var(--line);
+       background:var(--panel);margin-bottom:6px;align-items:flex-start}
+  .chg .ident{font-size:9.5px;color:var(--dim);flex:0 0 140px;padding-top:2px;
+              word-break:break-all}
+  .chg .quoi{flex:1;font-size:11.5px;line-height:1.6}
+  .chg .quoi small{display:block;color:var(--muted);font-size:10.5px;margin-top:5px;
+                   line-height:1.7;word-break:break-all}
+  .chg .agir{flex:0 0 auto}
+
   /* --- historique --- */
   .graphe{border:1px solid var(--line);background:var(--panel);padding:20px;
           margin-bottom:20px}
@@ -224,7 +243,7 @@
     <div class="nav" id="nav">
       <div class="item on" data-v="bulletin">BULLETIN</div>
       <div class="item" data-v="constats">CONSTATS <span class="badge" id="bConstats"></span></div>
-      <div class="item" data-v="changements">CHANGEMENTS</div>
+      <div class="item" data-v="changements">CHANGEMENTS <span class="badge" id="bChangements"></span></div>
       <div class="item" data-v="historique">HISTORIQUE</div>
       <div class="sep"></div>
       <div class="item" data-v="exceptions">EXCEPTIONS</div>
@@ -252,6 +271,9 @@ let filtreConstats = "tous";
 let messageConstat = null;
 let confirmerReference = false;
 let historique = null;
+// undefined tant que la comparaison n'a pas ete demandee, null quand il n'y a
+// pas assez d'analyses: les deux cas s'affichent differemment.
+let comparaison = undefined;
 // Les ecrans et les fichiers associes aux constats sont resolus une fois, par
 // le backend, plutot qu'a chaque redessin: la verification d'existence d'un
 // fichier touche le disque, et la faire soixante fois par seconde pour afficher
@@ -642,6 +664,89 @@ function grapheHistorique(){
   </div>`;
 }
 
+
+// --- ecran des changements -------------------------------------------------
+
+// FAMILLES ordonne les differences de la plus urgente a la plus rassurante, et
+// leur donne un nom qui se lit. Les cles viennent de la ligne de commande.
+const FAMILLES = [
+  ["new",         "NOUVEAU - absent de l'analyse précédente", "crit"],
+  ["worse",       "AGGRAVÉ - la gravité a monté",             "crit"],
+  ["appeared",    "APPARU - entré dans un inventaire surveillé", "med"],
+  ["disappeared", "DISPARU - sorti d'un inventaire surveillé",   ""],
+  ["better",      "AMÉLIORÉ - la gravité a baissé",           "ok"],
+  ["resolved",    "RÉSOLU - corrigé ou assumé",               "ok"],
+];
+
+function vueChangements(){
+  if (comparaison === undefined){
+    return `<h2>Changements</h2><p class="attente">Comparaison en cours...</p>`;
+  }
+  if (comparaison === null){
+    return `<h2>Changements</h2>
+      <p class="sub">Il faut deux analyses pour voir ce qui a bougé.</p>
+      <div class="vide"><h3>Pas encore de comparaison</h3>
+        <p>Une analyse dit l'état de la machine à un instant. C'est en confrontant deux
+           analyses qu'apparaît le signal utile: un port qui s'ouvre, une entrée de
+           démarrage qui apparaît, une empreinte qui bouge.</p></div>`;
+  }
+
+  const c = comparaison;
+  let corps = FAMILLES.map(([genre, titre, teinte]) => {
+    const g = c.changes.filter(x => x.kind === genre);
+    if (!g.length) return "";
+    return `<div class="fam ${teinte ? "c-" + teinte : ""}" style="${teinte ? "" : "color:var(--dim)"}">
+        ${titre}</div>` + g.map(ligneChangement).join("");
+  }).join("");
+
+  if (!corps){
+    corps = `<div class="vide"><h3>Rien n'a changé</h3>
+      <p>Les deux analyses décrivent la même machine dans le même état. C'est le
+         résultat qu'on espère, et le seul qui ne demande rien.</p></div>`;
+  }
+
+  return `<h2>Changements</h2>
+    <p class="sub">Ce qui a bougé entre l'analyse du
+       ${new Date(c.before).toLocaleString("fr-FR")} et celle du
+       ${new Date(c.after).toLocaleString("fr-FR")}. C'est souvent plus parlant que
+       l'état lui-même: une machine imparfaite mais stable inquiète moins qu'une machine
+       correcte où quelque chose vient d'apparaître.</p>
+    ${messageConstat ? `<div class="avis"><b>${messageConstat.titre}</b>
+       ${messageConstat.texte}</div>` : ""}
+    <div class="ecart">
+      ${blocEcart("DURCISSEMENT", c.hardening_before, c.hardening_after)}
+      ${blocEcart("INTÉGRITÉ", c.integrity_before, c.integrity_after)}
+    </div>
+    ${corps}`;
+}
+
+function blocEcart(titre, avant, apres){
+  const d = apres - avant;
+  const teinte = d > 0 ? "ok" : d < 0 ? "crit" : "";
+  const signe = d > 0 ? "+" + d : d < 0 ? String(d) : "inchangé";
+  return `<div class="bloc">
+    <div class="lbl">${titre}</div>
+    <div class="chiffres">
+      <span class="c-${couleurNote(apres)}">${apres}</span>
+      <span class="delta ${teinte ? "c-" + teinte : "stable"}">${signe}</span>
+    </div>
+    <div class="lbl" style="margin-top:6px;letter-spacing:0;text-transform:none">
+      était à ${avant}</div>
+  </div>`;
+}
+
+function ligneChangement(x){
+  const agir = destinations[x.id]
+    ? `<button class="btn" data-reglage="${x.id}">${destinations[x.id].libelle.toUpperCase()}</button>`
+    : "";
+  return `<div class="chg">
+    <span class="ident">${x.id}</span>
+    <span class="quoi">${echapper(x.title)}
+      ${x.line ? `<small>${echapper(x.line)}</small>` : ""}</span>
+    <span class="agir">${agir}</span>
+  </div>`;
+}
+
 function vueAVenir(nom){
   return `<h2>${nom}</h2>
     <p class="sub">Cet écran n'est pas encore construit.</p>
@@ -654,7 +759,7 @@ function vueAVenir(nom){
 const VUES = {
   bulletin: vueBulletin,
   constats: vueConstats,
-  changements: () => vueAVenir("Changements"),
+  changements: vueChangements,
   historique: vueHistorique,
   exceptions: () => vueAVenir("Exceptions"),
   reference: () => vueAVenir("Référence d'intégrité"),
@@ -667,6 +772,12 @@ function dessiner(){
   document.querySelectorAll(".nav .item").forEach(i =>
     i.classList.toggle("on", i.dataset.v === vueActive));
   document.getElementById("vue").innerHTML = VUES[vueActive]();
+
+  const bc = document.getElementById("bChangements");
+  if (comparaison && comparaison.alarming > 0){
+    bc.textContent = comparaison.alarming;
+    bc.classList.add("alerte");
+  } else { bc.textContent = ""; bc.classList.remove("alerte"); }
 
   const b = document.getElementById("bConstats");
   if (bulletin){
@@ -738,6 +849,7 @@ async function lancer(){
   dessiner();
   await resoudreActions();
   await chargerHistorique();
+  comparaison = undefined;
   dessiner();
 }
 
@@ -807,6 +919,18 @@ async function validerRevocation(id){
 // chargerHistorique relit la liste des analyses conservees. Elle est relue
 // plutot que mise a jour a la main: une analyse ecrite par la tache planifiee
 // pendant que la console est ouverte apparaitrait sinon jamais.
+// chargerComparaison confronte les deux analyses les plus recentes. Elle est
+// relancee a chaque visite plutot que gardee en memoire: une analyse peut avoir
+// eu lieu entre-temps, et une comparaison perimee serait pire qu'absente.
+async function chargerComparaison(){
+  comparaison = undefined;
+  try { comparaison = await go().Changements(); }
+  catch (e) {
+    comparaison = null;
+    messageConstat = { titre: "La comparaison a échoué.", texte: String(e) };
+  }
+}
+
 async function chargerHistorique(){
   try { historique = await go().Historique() || []; }
   catch (e) { historique = []; }
@@ -856,6 +980,7 @@ document.getElementById("nav").addEventListener("click", e => {
     messageConstat = null;
     dessiner();
     if (vueActive === "historique"){ chargerHistorique().then(dessiner); }
+    if (vueActive === "changements"){ chargerComparaison().then(dessiner); }
   }
 });
 
