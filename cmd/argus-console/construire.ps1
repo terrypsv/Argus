@@ -101,8 +101,12 @@ try {
     }
 
     Write-Host "compilation de la console" -ForegroundColor DarkGray
+    # La date de compilation est posee ici plutot que lue a l'execution: le
+    # fichier peut etre copie, restaure ou synchronise, et sa date de
+    # modification ne dit alors plus rien de la version qu'il porte.
+    $dateJour = (Get-Date).ToString("yyyy-MM-dd")
     go build -tags "desktop,production" `
-             -ldflags "-H windowsgui -X main.version=$Version" `
+             -ldflags "-H windowsgui -X main.version=$Version -X main.dateCompilation=$dateJour" `
              -o argus-console.exe .
     if ($LASTEXITCODE -ne 0) { throw "la compilation de la console a echoue" }
 

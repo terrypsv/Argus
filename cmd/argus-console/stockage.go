@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -25,44 +26,75 @@ func fichierExiste(chemin string) bool {
 	return err == nil && !fi.IsDir()
 }
 
-// dossierDonnees renvoie l'emplacement des donnees de la console.
+// dossierDonnees renvoie l'emplacement des données de la console.
 //
-// ProgramData d'abord, pour qu'une analyse planifiee lancee par le systeme et
-// une analyse lancee a la main ecrivent au meme endroit. S'il n'est pas
-// accessible en ecriture, faute de privileges, on retombe sur le profil de
-// l'utilisateur plutot que d'echouer: mieux vaut un historique personnel
-// qu'aucun historique.
+// Le profil de l'utilisateur, et rien d'autre. La première version essayait
+// d'abord ProgramData et retombait sur le profil quand elle n'y avait pas
+// accès. Cela paraissait accommodant et se révélait faux: le droit d'écrire
+// dans ProgramData dépend des privilèges du moment, donc de la façon dont la
+// console a été lancée. Démarrée depuis une console administrateur elle y
+// écrivait, démarrée par l'Explorateur elle écrivait ailleurs, et l'historique
+// semblait disparaître d'une fois sur l'autre.
+//
+// Un emplacement qui dépend du contexte d'exécution n'est pas un emplacement.
+// Le profil de l'utilisateur est accessible en écriture dans tous les cas, y
+// compris depuis un processus élevé.
 func dossierDonnees() (string, error) {
-	var base string
-	if estWindows() {
-		base = os.Getenv("ProgramData")
-	}
-	if base != "" {
-		candidat := filepath.Join(base, "Argus")
-		if err := os.MkdirAll(candidat, 0o755); err == nil {
-			if accessibleEnEcriture(candidat) {
-				return candidat, nil
-			}
-		}
-	}
-	perso, err := os.UserConfigDir()
+	base, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
 	}
-	candidat := filepath.Join(perso, "Argus")
-	return candidat, os.MkdirAll(candidat, 0o755)
+	dossier := filepath.Join(base, "Argus")
+	if err := os.MkdirAll(dossier, 0o755); err != nil {
+		return "", err
+	}
+	recupererAncienEmplacement(dossier)
+	return dossier, nil
 }
 
-func accessibleEnEcriture(dossier string) bool {
-	essai := filepath.Join(dossier, ".essai")
-	f, err := os.Create(essai)
-	if err != nil {
-		return false
+// recupererAncienEmplacement rapatrie ce qu'une version précédente avait rangé
+// dans ProgramData.
+//
+// Sans cela, corriger l'emplacement ferait disparaître l'historique et les
+// décisions déjà prises, du point de vue de celui qui utilise l'outil. Un
+// correctif qui efface des données en silence n'en est pas un.
+//
+// Rien n'est écrasé: un fichier déjà présent à la nouvelle place fait autorité.
+func recupererAncienEmplacement(nouveau string) {
+	ancienBase := os.Getenv("ProgramData")
+	if ancienBase == "" {
+		return
 	}
-	f.Close()
-	os.Remove(essai)
-	return true
+	ancien := filepath.Join(ancienBase, "Argus")
+	if ancien == nouveau {
+		return
+	}
+	if fi, err := os.Stat(ancien); err != nil || !fi.IsDir() {
+		return
+	}
+
+	_ = filepath.WalkDir(ancien, func(chemin string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return nil
+		}
+		relatif, err := filepath.Rel(ancien, chemin)
+		if err != nil {
+			return nil
+		}
+		cible := filepath.Join(nouveau, relatif)
+		if fichierExiste(cible) {
+			return nil
+		}
+		if err := os.MkdirAll(filepath.Dir(cible), 0o755); err != nil {
+			return nil
+		}
+		if contenu, err := os.ReadFile(chemin); err == nil {
+			_ = os.WriteFile(cible, contenu, 0o644)
+		}
+		return nil
+	})
 }
+
 
 func dossierAnalyses() (string, error) {
 	base, err := dossierDonnees()
