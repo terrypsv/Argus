@@ -27,6 +27,13 @@ var assets embed.FS
 // dire sa version rend un rapport irreproductible.
 var version = "dev"
 
+// dateCompilation est posée par -ldflags au format 2006-01-02.
+//
+// Elle sert à dire l'âge de la version installée sans contacter quoi que ce
+// soit. Un outil de sécurité périmé est un problème en soi, et l'utilisateur
+// visé par cette application ne pensera pas à aller vérifier lui-même.
+var dateCompilation = ""
+
 func main() {
 	// Avant toute fenêtre: passé ce point, Windows a déjà décidé de l'échelle
 	// d'affichage et refuse d'en changer, ce qui rend l'application floue sur

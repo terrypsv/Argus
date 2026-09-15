@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -22,6 +23,7 @@ type OptionsAnalyse struct {
 // Etat décrit ce que la console sait d'elle-même au démarrage.
 type Etat struct {
 	Version        string `json:"version"`
+	DateVersion    string `json:"dateVersion"`
 	Systeme        string `json:"systeme"`
 	ArgusTrouve    bool   `json:"argusTrouve"`
 	CheminArgus    string `json:"cheminArgus"`
@@ -67,6 +69,7 @@ func (a *App) demarrage(ctx context.Context) {
 func (a *App) EtatInitial() Etat {
 	e := Etat{
 		Version:             a.version,
+		DateVersion:         dateCompilation,
 		Systeme:             runtime.GOOS,
 		AnalyseRapideUtile:  runtime.GOOS != "windows",
 		ElevationDisponible: runtime.GOOS == "windows",
@@ -297,6 +300,45 @@ func (a *App) ChargerAnalyse(chemin string) (*Bulletin, error) {
 		}
 	}
 	return nil, fmt.Errorf("cette analyse ne fait pas partie de l'historique")
+}
+
+// LesReglages renvoie les préférences conservées.
+func (a *App) LesReglages() Reglages { return lireReglages() }
+
+// EnregistrerReglages conserve les préférences.
+func (a *App) EnregistrerReglages(r Reglages) error { return ecrireReglages(r) }
+
+// OuvrirDossierDonnees montre où la console range ce qu'elle produit.
+//
+// Le chemin est affiché ailleurs dans l'interface, mais un chemin affiché se
+// recopie à la main; un dossier qui s'ouvre se parcourt.
+func (a *App) OuvrirDossierDonnees() error {
+	base, err := dossierDonnees()
+	if err != nil {
+		return err
+	}
+	return ouvrirCible(base)
+}
+
+// EffacerHistorique supprime les analyses conservées.
+//
+// La référence d'intégrité et les constats assumés ne sont pas touchés, et ce
+// n'est pas un oubli: l'historique est une commodité, tandis que la référence
+// fige un jugement porté un jour précis et que les exceptions sont des
+// décisions motivées. Les effacer ensemble mettrait sur le même plan des
+// choses qui n'ont pas la même valeur.
+func (a *App) EffacerHistorique() (int, error) {
+	chemins, err := analysesConservees()
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, c := range chemins {
+		if os.Remove(c) == nil {
+			n++
+		}
+	}
+	return n, nil
 }
 
 // DernierBulletin renvoie l'analyse la plus récente, ou rien s'il n'y en a

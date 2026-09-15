@@ -136,6 +136,29 @@
        font-size:11.5px;line-height:1.8;color:var(--muted);margin-bottom:20px}
   .err b{color:var(--pale);font-weight:500}
   .attente{font-size:11px;color:var(--muted)}
+  /* --- reference et parametres --- */
+  .sect{border:1px solid var(--line);background:var(--panel);margin-bottom:10px}
+  .sect > .sh{font-size:9px;letter-spacing:.18em;color:var(--steel);
+              padding:11px 15px;border-bottom:1px solid var(--line)}
+  .opt{display:flex;align-items:flex-start;gap:16px;padding:13px 15px;
+       border-bottom:1px solid var(--line)}
+  .opt:last-child{border-bottom:none}
+  .opt .oi{flex:1;font-size:11.5px;line-height:1.6}
+  .opt .oi small{display:block;color:var(--muted);font-size:10.5px;margin-top:5px;
+                 line-height:1.75}
+  .opt .oi .chemin{color:var(--dim);font-size:10px;word-break:break-all;margin-top:5px}
+  .opt .oc{flex:0 0 220px;text-align:right}
+  .seg{display:inline-flex;border:1px solid var(--line2)}
+  .seg span{font-size:9.5px;letter-spacing:.1em;padding:7px 12px;color:var(--muted);
+            cursor:pointer;border-right:1px solid var(--line2);transition:.14s}
+  .seg span:last-child{border-right:none}
+  .seg span:hover{color:var(--pale)}
+  .seg span.on{background:var(--pale);color:var(--bg)}
+  .fichiers{max-height:260px;overflow:auto;font-size:10.5px;color:var(--muted);
+            line-height:1.95;margin-top:12px}
+  .fichiers div{padding-left:14px;position:relative;word-break:break-all}
+  .fichiers div::before{content:"-";position:absolute;left:0;color:var(--dim)}
+
   /* --- changements --- */
   .ecart{display:flex;gap:22px;margin-bottom:20px}
   .ecart .bloc{flex:1;border:1px solid var(--line);background:var(--panel);padding:16px 18px}
@@ -274,6 +297,9 @@ let historique = null;
 // undefined tant que la comparaison n'a pas ete demandee, null quand il n'y a
 // pas assez d'analyses: les deux cas s'affichent differemment.
 let comparaison = undefined;
+let reference = undefined;
+let listeFichiers = false;
+let reglages = null;
 // Les ecrans et les fichiers associes aux constats sont resolus une fois, par
 // le backend, plutot qu'a chaque redessin: la verification d'existence d'un
 // fichier touche le disque, et la faire soixante fois par seconde pour afficher
@@ -281,7 +307,19 @@ let comparaison = undefined;
 let destinations = {};
 let chemins = {};
 let navigateurs = {};
-const options = { rapide: true, eleve: true, profil: "workstation", verifierPaquets: false };
+const options = { rapide: false, eleve: true, profil: "workstation", verifierPaquets: false };
+
+// appliquerReglages reporte les preferences conservees sur les options de la
+// prochaine analyse. Sans cela, un reglage change dans l'ecran dedie n'aurait
+// aucun effet sur ce que fait le bouton du bulletin, ce qui est le genre de
+// silence qui detruit la confiance dans une interface.
+function appliquerReglages(){
+  if (!reglages) return;
+  options.rapide = !!reglages.analyseRapide;
+  options.eleve = !!reglages.elevation;
+  options.profil = reglages.profil || "workstation";
+  options.verifierPaquets = !!reglages.verifierPaquets;
+}
 
 const go = () => window.go?.main?.App;
 
@@ -747,6 +785,166 @@ function ligneChangement(x){
   </div>`;
 }
 
+
+// --- ecran de la reference -------------------------------------------------
+
+function vueReference(){
+  if (reference === undefined){
+    return `<h2>Référence d'intégrité</h2><p class="attente">Lecture...</p>`;
+  }
+
+  const r = reference;
+  if (!r.existe){
+    return `<h2>Référence d'intégrité</h2>
+      <p class="sub">Aucune référence n'a encore été prise sur cette machine.</p>
+      <div class="vide"><h3>Rien à comparer</h3>
+        <p>La référence est une photographie des fichiers les plus sensibles du système.
+           Chaque analyse compare à cette photographie, et signale ce qui s'en écarte.
+           Sans elle, le contrôle d'intégrité n'a rien à confronter.</p>
+        <div class="actions"><button class="btn p" data-reference="1">
+          PRENDRE LA RÉFÉRENCE</button></div></div>`;
+  }
+
+  return `<h2>Référence d'intégrité</h2>
+    <p class="sub">Une photographie des fichiers les plus sensibles du système, prise un
+       jour où vous jugiez la machine saine. Elle ne vaut que ce que valait la machine
+       ce jour-là.</p>
+    ${messageConstat ? `<div class="avis"><b>${messageConstat.titre}</b>
+       ${messageConstat.texte}</div>` : ""}
+    ${confirmerReference ? confirmationReference() : ""}
+
+    <div class="sect">
+      <div class="sh">ÉTAT</div>
+      <div class="opt"><div class="oi">Prise le
+        <small>${new Date(r.priseLe).toLocaleString("fr-FR")}, ${ecoule(r.priseLe)}</small></div>
+        <div class="oc"></div></div>
+      <div class="opt"><div class="oi">Fichiers suivis
+        <small>Empreintes ${r.algorithme || "SHA-256"}</small></div>
+        <div class="oc">${r.fichiers}</div></div>
+      ${r.compare ? `
+      <div class="opt"><div class="oi">Intacts</div>
+        <div class="oc c-ok">${Math.max(0, r.fichiers - r.alteres - r.misAJour - r.changes - r.manquants)}</div></div>
+      ${r.misAJour ? `<div class="opt"><div class="oi">Modifiés par une mise à jour signée
+        <small>Leur éditeur les a signés: la référence est simplement périmée.</small></div>
+        <div class="oc c-med">${r.misAJour}</div></div>` : ""}
+      ${r.changes ? `<div class="opt"><div class="oi">Modifiés, signature non applicable
+        <small>Des fichiers de configuration, qui ne portent jamais de signature.</small></div>
+        <div class="oc c-high">${r.changes}</div></div>` : ""}
+      ${r.alteres ? `<div class="opt"><div class="oi">Modifiés et non signés
+        <small>Un binaire système modifié sans signature n'a pas été remplacé par une mise à jour.</small></div>
+        <div class="oc c-crit">${r.alteres}</div></div>` : ""}
+      ${r.manquants ? `<div class="opt"><div class="oi">Disparus</div>
+        <div class="oc c-med">${r.manquants}</div></div>` : ""}
+      ` : `<div class="opt"><div class="oi">Écarts
+        <small>Aucune analyse n'a encore comparé la machine à cette référence.</small></div>
+        <div class="oc"></div></div>`}
+    </div>
+
+    <div class="actions">
+      <button class="btn p" data-reference="1">REPRENDRE LA RÉFÉRENCE</button>
+      <button class="btn" data-listefichiers="1">
+        ${listeFichiers ? "MASQUER" : "VOIR"} LES FICHIERS SUIVIS</button>
+    </div>
+    ${listeFichiers ? `<div class="fichiers">
+      ${r.liste.map(f => `<div>${echapper(f)}</div>`).join("")}</div>` : ""}`;
+}
+
+function confirmationReference(){
+  return `<div class="form">
+    <h4>Reprendre la référence d'intégrité</h4>
+    <p class="pourquoi">La référence fige l'état actuel des fichiers critiques, et tout ce
+       qui s'en écartera ensuite sera signalé. La reprendre efface donc les écarts
+       constatés aujourd'hui: si l'un d'eux venait d'une altération et non d'une mise à
+       jour, elle serait enregistrée comme légitime et le contrôle ne la reverrait jamais.</p>
+    <p class="pourquoi">Ne la reprenez qu'après avoir vérifié que les fichiers modifiés
+       portent une signature d'éditeur valide, ce que le rapport indique.</p>
+    <div class="actions">
+      <button class="btn p" data-refconfirme="1">JE CONFIRME, REPRENDRE</button>
+      <button class="btn" data-refannule="1">ANNULER</button>
+    </div></div>`;
+}
+
+
+// --- ecran des parametres --------------------------------------------------
+
+function vueParametres(){
+  if (!reglages) return `<h2>Paramètres</h2><p class="attente">Lecture...</p>`;
+  const r = reglages;
+
+  const segment = (cle, choix) => `<span class="seg">${choix.map(([v, t]) =>
+    `<span class="${r[cle] === v ? "on" : ""}" data-reglage-cle="${cle}"
+       data-reglage-valeur="${v}">${t}</span>`).join("")}</span>`;
+
+  const bascule = cle => `<span class="seg">
+    <span class="${r[cle] ? "" : "on"}" data-reglage-cle="${cle}" data-reglage-valeur="non">NON</span>
+    <span class="${r[cle] ? "on" : ""}" data-reglage-cle="${cle}" data-reglage-valeur="oui">OUI</span></span>`;
+
+  const age = etat?.dateVersion
+    ? `, ${ecoule(etat.dateVersion + "T12:00:00")}`
+    : "";
+
+  return `<h2>Paramètres</h2>
+    <p class="sub">Tout ce que la console fait, et où elle le range. Rien ici n'est
+       irréversible.</p>
+    ${messageConstat ? `<div class="avis"><b>${messageConstat.titre}</b>
+       ${messageConstat.texte}</div>` : ""}
+
+    <div class="sect">
+      <div class="sh">ANALYSE</div>
+      <div class="opt"><div class="oi">Type de machine
+        <small>Une station d'analyse ou un conteneur n'ont pas les mêmes exigences qu'un
+        poste ordinaire. Le type choisi écarte les contrôles qui n'ont pas de sens ici,
+        sans jamais masquer un constat d'intégrité.</small></div>
+        <div class="oc">${segment("profil", [["workstation","POSTE"],["audit","AUDIT"],["container","CONTENEUR"]])}</div></div>
+      ${etat?.elevationDisponible ? `
+      <div class="opt"><div class="oi">Demander les privilèges administrateur
+        <small>Sans eux, le chiffrement du disque, l'état de l'antivirus et une partie du
+        registre ne peuvent pas être lus. L'analyse tourne quand même, et le rapport
+        signale ce qu'elle n'a pas vu.</small></div>
+        <div class="oc">${bascule("elevation")}</div></div>` : ""}
+      ${etat?.analyseRapideUtile ? `
+      <div class="opt"><div class="oi">Analyse rapide par défaut
+        <small>Saute le parcours complet des disques. Gagne plusieurs minutes, mais ne
+        cherche plus les fichiers modifiables par tous.</small></div>
+        <div class="oc">${bascule("analyseRapide")}</div></div>` : ""}
+      ${etat?.verificationPaquets ? `
+      <div class="opt"><div class="oi">Comparer aux empreintes de la distribution
+        <small>Plus fiable qu'une référence prise localement, qui suppose la machine saine
+        au moment où on la prend. Compte deux à trois minutes par analyse.</small></div>
+        <div class="oc">${bascule("verifierPaquets")}</div></div>` : ""}
+    </div>
+
+    <div class="sect">
+      <div class="sh">DONNÉES</div>
+      <div class="opt"><div class="oi">Emplacement
+        <div class="chemin">${echapper(etat?.dossierDonnees || "")}</div></div>
+        <div class="oc"><button class="btn" data-ouvrirdonnees="1">OUVRIR</button></div></div>
+      <div class="opt"><div class="oi">Analyses conservées
+        <small>L'historique et les comparaisons s'appuient dessus.</small></div>
+        <div class="oc">${historique ? historique.length : "?"}</div></div>
+      <div class="opt"><div class="oi">Effacer l'historique
+        <small>Les analyses conservées seulement. La référence d'intégrité et les constats
+        assumés ne sont pas touchés: l'un fige un jugement porté un jour précis, les autres
+        sont des décisions motivées.</small></div>
+        <div class="oc"><button class="btn" data-effacer="1">EFFACER</button></div></div>
+    </div>
+
+    <div class="sect">
+      <div class="sh">VERSION</div>
+      <div class="opt"><div class="oi">Console Argus ${etat?.version || ""}
+        <small>${etat?.dateVersion ? "Compilée le " + etat.dateVersion + age
+                                   : "Date de compilation inconnue"}</small></div>
+        <div class="oc"></div></div>
+      <div class="opt"><div class="oi">Ligne de commande
+        <div class="chemin">${echapper(etat?.cheminArgus || "introuvable")}</div></div>
+        <div class="oc"></div></div>
+      <div class="opt"><div class="oi">Aucune connexion sans votre accord
+        <small>La console ne contacte jamais le réseau d'elle-même, et rien de ce qu'elle
+        analyse ne quitte cette machine.</small></div>
+        <div class="oc c-ok" style="font-size:9.5px;letter-spacing:.12em">GARANTI</div></div>
+    </div>`;
+}
+
 function vueAVenir(nom){
   return `<h2>${nom}</h2>
     <p class="sub">Cet écran n'est pas encore construit.</p>
@@ -762,8 +960,8 @@ const VUES = {
   changements: vueChangements,
   historique: vueHistorique,
   exceptions: () => vueAVenir("Exceptions"),
-  reference: () => vueAVenir("Référence d'intégrité"),
-  parametres: () => vueAVenir("Paramètres"),
+  reference: vueReference,
+  parametres: vueParametres,
 };
 
 let vueActive = "bulletin";
@@ -922,6 +1120,17 @@ async function validerRevocation(id){
 // chargerComparaison confronte les deux analyses les plus recentes. Elle est
 // relancee a chaque visite plutot que gardee en memoire: une analyse peut avoir
 // eu lieu entre-temps, et une comparaison perimee serait pire qu'absente.
+async function chargerReference(){
+  reference = undefined;
+  try { reference = await go().LaReference(); }
+  catch (e) { reference = { existe: false }; }
+}
+
+async function chargerReglages(){
+  try { reglages = await go().LesReglages(); }
+  catch (e) { reglages = null; }
+}
+
 async function chargerComparaison(){
   comparaison = undefined;
   try { comparaison = await go().Changements(); }
@@ -981,12 +1190,50 @@ document.getElementById("nav").addEventListener("click", e => {
     dessiner();
     if (vueActive === "historique"){ chargerHistorique().then(dessiner); }
     if (vueActive === "changements"){ chargerComparaison().then(dessiner); }
+    if (vueActive === "reference"){ chargerReference().then(dessiner); }
+    if (vueActive === "parametres"){
+      Promise.all([chargerReglages(), chargerHistorique()]).then(dessiner);
+    }
   }
 });
 
 document.getElementById("vue").addEventListener("click", async e => {
   if (e.target.closest("#lancer")) { lancer(); return; }
   if (e.target.closest("#annuler")) { go()?.Annuler(); return; }
+
+  if (e.target.closest("[data-listefichiers]")){ listeFichiers = !listeFichiers; dessiner(); return; }
+
+  if (e.target.closest("[data-ouvrirdonnees]")){
+    try { await go().OuvrirDossierDonnees(); }
+    catch (err) { messageConstat = { titre: "Impossible d'ouvrir le dossier.", texte: String(err) }; dessiner(); }
+    return;
+  }
+
+  if (e.target.closest("[data-effacer]")){
+    try {
+      const n = await go().EffacerHistorique();
+      historique = []; comparaison = undefined;
+      messageConstat = { titre: "Historique effacé.",
+        texte: n + " analyse(s) supprimée(s). La référence et les constats assumés sont conservés." };
+    } catch (err) {
+      messageConstat = { titre: "L'effacement a échoué.", texte: String(err) };
+    }
+    dessiner(); return;
+  }
+
+  const seg = e.target.closest("[data-reglage-cle]");
+  if (seg){
+    const cle = seg.dataset.reglageCle;
+    const brut = seg.dataset.reglageValeur;
+    reglages[cle] = brut === "oui" ? true : brut === "non" ? false : brut;
+    // Les reglages sont ecrits des qu'ils changent, sans bouton "enregistrer":
+    // un reglage qu'on croit pose et qui ne l'est pas est pire que pas de
+    // reglage du tout.
+    try { await go().EnregistrerReglages(reglages); }
+    catch (err) { messageConstat = { titre: "Le réglage n'a pas pu être conservé.", texte: String(err) }; }
+    appliquerReglages();
+    dessiner(); return;
+  }
 
   const ligne = e.target.closest("[data-analyse]");
   if (ligne){
@@ -1069,6 +1316,8 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (!go()) return;
     clearInterval(attendre);
     etat = await go().EtatInitial();
+    await chargerReglages();
+    appliquerReglages();
     bulletin = await go().DernierBulletin();
     await resoudreActions();
     // Le backend pousse l'avancement plutot que l'interface ne l'interroge:
