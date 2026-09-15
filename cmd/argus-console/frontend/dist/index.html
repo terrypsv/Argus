@@ -269,7 +269,7 @@
       <div class="item" data-v="changements">CHANGEMENTS <span class="badge" id="bChangements"></span></div>
       <div class="item" data-v="historique">HISTORIQUE</div>
       <div class="sep"></div>
-      <div class="item" data-v="exceptions">EXCEPTIONS</div>
+      <div class="item" data-v="exceptions">EXCEPTIONS <span class="badge" id="bExceptions"></span></div>
       <div class="item" data-v="reference">RÉFÉRENCE</div>
       <div class="sep"></div>
       <div class="item" data-v="parametres">PARAMÈTRES</div>
@@ -300,6 +300,9 @@ let comparaison = undefined;
 let reference = undefined;
 let listeFichiers = false;
 let reglages = null;
+let exceptions = undefined;
+let exceptionOuverte = null;
+let prolongationOuverte = null;
 // Les ecrans et les fichiers associes aux constats sont resolus une fois, par
 // le backend, plutot qu'a chaque redessin: la verification d'existence d'un
 // fichier touche le disque, et la faire soixante fois par seconde pour afficher
@@ -945,6 +948,99 @@ function vueParametres(){
     </div>`;
 }
 
+
+// --- ecran des exceptions --------------------------------------------------
+
+function vueExceptions(){
+  if (exceptions === undefined){
+    return `<h2>Exceptions</h2><p class="attente">Lecture...</p>`;
+  }
+  if (!exceptions.length){
+    return `<h2>Exceptions</h2>
+      <p class="sub">Vous n'avez encore rien assumé sur cette machine.</p>
+      <div class="vide"><h3>Aucune exception</h3>
+        <p>Assumer un constat, c'est décider de ne pas le corriger en sachant pourquoi.
+           Le constat reste visible et daté, et la note sans exception reste affichée à
+           côté de l'autre: une machine dérogée ne peut pas se présenter comme
+           irréprochable.</p></div>`;
+  }
+
+  return `<h2>Exceptions</h2>
+    <p class="sub">Les points que vous avez choisi de ne pas corriger, en sachant pourquoi.
+       Un outil qui signale toujours la même chose finit par ne plus être lu, et une
+       exception qu'on ne peut plus expliquer est pire que le problème qu'elle recouvre.</p>
+    ${messageConstat ? `<div class="avis"><b>${messageConstat.titre}</b>
+       ${messageConstat.texte}</div>` : ""}
+    ${exceptions.map(carteException).join("")}
+    <div class="couverture">Ces décisions sont conservées dans
+      ${echapper(etat?.dossierDonnees || "")}\\argus-exceptions.json, au format JSON.
+      Versionné, ce fichier rend l'historique des dérogations relisible en revue.</div>`;
+}
+
+function carteException(e){
+  const ouvert = exceptionOuverte === e.id;
+  let etat, teinte;
+  if (e.sansEcheance){ etat = "SANS ÉCHÉANCE"; teinte = "high"; }
+  else if (e.expiree){ etat = "EXPIRÉE"; teinte = "crit"; }
+  else if (e.joursRestants <= 15){ etat = e.joursRestants + " JOURS"; teinte = "med"; }
+  else { etat = e.joursRestants + " JOURS"; teinte = "assume"; }
+
+  return `<div class="cst" data-exception="${e.id}">
+    <div class="tete">
+      <span class="grav c-${teinte}">${etat}</span>
+      <span class="titre">${echapper(e.titre || e.id)}</span>
+      <span class="ref">${e.id}</span>
+    </div>
+    ${ouvert ? `<div class="corps">
+      ${e.expiree ? `<div class="assume"><b>Cette exception a expiré.</b>
+         Le constat est redevenu un écart ouvert et compte de nouveau dans la note.
+         Prolongez-la si la décision tient toujours, révoquez-la sinon.</div>` : ""}
+      ${e.sansEcheance ? `<div class="assume"><b>Cette exception n'expire jamais.</b>
+         Sans échéance, "temporaire" devient "permanent" en silence, et plus personne ne
+         revient sur la décision. Une échéance force une revue.</div>` : ""}
+      <table>
+        <tr><td style="width:150px">MOTIF</td><td class="v">${echapper(e.reason)}</td></tr>
+        <tr><td>DÉCIDÉ PAR</td><td class="v">${echapper(e.accepted_by || "non précisé")}</td></tr>
+        <tr><td>LE</td><td class="v">${echapper(e.accepted_at || "")}</td></tr>
+        <tr><td>EXPIRE</td><td class="v">${e.sansEcheance ? "jamais" : echapper(e.expires)}</td></tr>
+        ${!e.connu ? `<tr><td>CONSTAT</td><td>Absent de la dernière analyse: il ne se
+          déclenche plus, ou le contrôle n'a pas tourné.</td></tr>` : ""}
+      </table>
+      ${prolongationOuverte === e.id ? formulaireProlongation(e) : `
+      <div class="actions">
+        <button class="btn" data-prolonger="${e.id}">PROLONGER</button>
+        <button class="btn" data-revoquer="${e.id}">RÉVOQUER</button>
+        ${destinations[e.id]
+          ? `<button class="btn" data-reglage="${e.id}">${destinations[e.id].libelle.toUpperCase()}</button>`
+          : ""}
+      </div>`}
+    </div>` : ""}
+  </div>`;
+}
+
+function formulaireProlongation(e){
+  return `<div class="form">
+    <h4>Prolonger cette exception</h4>
+    <p class="pourquoi">Le motif reste celui d'origine, sauf si vous le changez. Une
+       prolongation est une décision nouvelle: si la raison d'il y a trois mois ne tient
+       plus, c'est le moment de le dire plutôt que de repousser l'échéance.</p>
+    <div class="champ"><label>MOTIF <span class="oblig">obligatoire</span></label>
+      <input id="motif" value="${echapper(e.reason)}"></div>
+    <div class="champ"><label>DÉCIDÉ PAR</label>
+      <input id="par" value="${echapper(e.accepted_by || "")}"></div>
+    <div class="champ"><label>REVOIR DANS</label>
+      <select id="jours">
+        <option value="90">90 jours</option>
+        <option value="30">30 jours</option>
+        <option value="180">180 jours</option>
+        <option value="0">sans échéance (déconseillé)</option>
+      </select></div>
+    <div class="actions">
+      <button class="btn p" data-valider="${e.id}">ENREGISTRER</button>
+      <button class="btn" data-annulerform="1">ANNULER</button>
+    </div></div>`;
+}
+
 function vueAVenir(nom){
   return `<h2>${nom}</h2>
     <p class="sub">Cet écran n'est pas encore construit.</p>
@@ -959,7 +1055,7 @@ const VUES = {
   constats: vueConstats,
   changements: vueChangements,
   historique: vueHistorique,
-  exceptions: () => vueAVenir("Exceptions"),
+  exceptions: vueExceptions,
   reference: vueReference,
   parametres: vueParametres,
 };
@@ -970,6 +1066,17 @@ function dessiner(){
   document.querySelectorAll(".nav .item").forEach(i =>
     i.classList.toggle("on", i.dataset.v === vueActive));
   document.getElementById("vue").innerHTML = VUES[vueActive]();
+
+  // Une exception qui arrive a echeance est la seule chose de cet ecran qui
+  // appelle une action: elle est signalee, le reste non.
+  const be = document.getElementById("bExceptions");
+  if (be){
+    const urgentes = (exceptions || []).filter(x => x.expiree || (!x.sansEcheance && x.joursRestants <= 15));
+    if (urgentes.length){
+      be.textContent = urgentes.length;
+      be.classList.add("alerte");
+    } else { be.textContent = ""; be.classList.remove("alerte"); }
+  }
 
   const bc = document.getElementById("bChangements");
   if (comparaison && comparaison.alarming > 0){
@@ -1073,6 +1180,8 @@ async function validerAcceptation(id){
   }
 
   formulaireOuvert = null;
+  prolongationOuverte = null;
+  if (vueActive === "exceptions") await chargerExceptions();
   messageConstat = {
     titre: "Constat assumé.",
     texte: "La décision est enregistrée. Les notes ne la prendront en compte qu'à la "
@@ -1104,6 +1213,7 @@ async function validerRevocation(id){
     messageConstat = { titre: "La révocation a échoué.", texte: String(e) };
     dessiner(); return;
   }
+  if (vueActive === "exceptions") await chargerExceptions();
   messageConstat = {
     titre: "Le constat redevient un écart ouvert.",
     texte: "Il sera de nouveau compté dans la note à la prochaine analyse, et celle-ci "
@@ -1120,6 +1230,15 @@ async function validerRevocation(id){
 // chargerComparaison confronte les deux analyses les plus recentes. Elle est
 // relancee a chaque visite plutot que gardee en memoire: une analyse peut avoir
 // eu lieu entre-temps, et une comparaison perimee serait pire qu'absente.
+async function chargerExceptions(){
+  exceptions = undefined;
+  try { exceptions = await go().LesExceptions() || []; }
+  catch (e) {
+    exceptions = [];
+    messageConstat = { titre: "Les exceptions n'ont pas pu être lues.", texte: String(e) };
+  }
+}
+
 async function chargerReference(){
   reference = undefined;
   try { reference = await go().LaReference(); }
@@ -1191,6 +1310,7 @@ document.getElementById("nav").addEventListener("click", e => {
     if (vueActive === "historique"){ chargerHistorique().then(dessiner); }
     if (vueActive === "changements"){ chargerComparaison().then(dessiner); }
     if (vueActive === "reference"){ chargerReference().then(dessiner); }
+    if (vueActive === "exceptions"){ chargerExceptions().then(dessiner); }
     if (vueActive === "parametres"){
       Promise.all([chargerReglages(), chargerHistorique()]).then(dessiner);
     }
@@ -1200,6 +1320,17 @@ document.getElementById("nav").addEventListener("click", e => {
 document.getElementById("vue").addEventListener("click", async e => {
   if (e.target.closest("#lancer")) { lancer(); return; }
   if (e.target.closest("#annuler")) { go()?.Annuler(); return; }
+
+  const prolonger = e.target.closest("[data-prolonger]");
+  if (prolonger){ prolongationOuverte = prolonger.dataset.prolonger; dessiner(); return; }
+
+  const carte = e.target.closest("[data-exception] .tete");
+  if (carte){
+    const id = carte.closest("[data-exception]").dataset.exception;
+    exceptionOuverte = exceptionOuverte === id ? null : id;
+    prolongationOuverte = null;
+    dessiner(); return;
+  }
 
   if (e.target.closest("[data-listefichiers]")){ listeFichiers = !listeFichiers; dessiner(); return; }
 
@@ -1320,6 +1451,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     appliquerReglages();
     bulletin = await go().DernierBulletin();
     await resoudreActions();
+    await chargerExceptions();
     // Le backend pousse l'avancement plutot que l'interface ne l'interroge:
     // une analyse qui dure passe ainsi son etape en cours sans qu'on ait a
     // choisir un rythme d'interrogation, toujours soit trop lent soit inutile.
