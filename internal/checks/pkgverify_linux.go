@@ -35,25 +35,26 @@ type pkgAnomaly struct {
 func pkgVerifyCheck(ctx *engine.Context) []model.Finding {
 	if !ctx.Config.VerifyPackages {
 		return []model.Finding{info("PKG-SKIPPED", "integrity",
-			"Package verification not run",
-			"Re-run with --verify-packages to compare every installed file against the digests published by your distribution. It takes several minutes but, unlike a local baseline, it cannot have been poisoned before the first scan.")}
+			"Vérification par le gestionnaire de paquets non effectuée",
+			"Relancez avec --verify-packages pour comparer chaque fichier installé aux empreintes publiées par votre distribution. Cela prend plusieurs minutes, mais contrairement à une référence prise localement, ces empreintes ne peuvent pas avoir été faussées avant la première analyse.")}
 	}
 
 	var raw string
+	var warn string
 	var manager string
 	switch {
 	case cmdAvailable("dpkg"):
 		manager = "dpkg"
 		// Discrepancies make dpkg exit non-zero, so the output matters more
 		// than the status.
-		raw, _ = runCmd(20*time.Minute, "dpkg", "--verify")
+		raw, warn, _ = runCmdSeparate(20*time.Minute, "dpkg", "--verify")
 	case cmdAvailable("rpm"):
 		manager = "rpm"
-		raw, _ = runCmd(20*time.Minute, "rpm", "-Va")
+		raw, warn, _ = runCmdSeparate(20*time.Minute, "rpm", "-Va")
 	default:
 		return []model.Finding{info("PKG-NONE", "integrity",
-			"No supported package manager found",
-			"Neither dpkg nor rpm is available; falling back to the local baseline only.")}
+			"Aucun gestionnaire de paquets reconnu",
+			"Ni dpkg ni rpm n'est disponible: seule la référence locale peut servir de comparaison.")}
 	}
 
 	var altered, missing, configs, docs []string
@@ -67,9 +68,9 @@ func pkgVerifyCheck(ctx *engine.Context) []model.Finding {
 			// reasons. Only a digest mismatch proves the contents changed.
 			continue
 		}
-		state := "modified"
+		state := "modifié"
 		if a.missing {
-			state = "missing"
+			state = "disparu"
 		}
 		switch {
 		case a.doc:
@@ -86,34 +87,44 @@ func pkgVerifyCheck(ctx *engine.Context) []model.Finding {
 	var out []model.Finding
 	if len(altered) > 0 {
 		out = append(out, fail("PKG-ALTERED", "integrity",
-			fmt.Sprintf("%d packaged file(s) no longer match the vendor digest", len(altered)),
+			fmt.Sprintf("%d fichier(s) empaqueté(s) ne correspondent plus à l'empreinte de l'éditeur", len(altered)),
 			model.SevHigh,
-			"These files were installed by a package but their contents differ from what the distribution published. Documentation and configuration are excluded, so this should not happen on an untouched system.",
-			"Compare against a clean copy (`apt-get install --reinstall <pkg>` or `rpm -V <pkg>`) and investigate before reinstalling - reinstalling destroys the evidence.",
+			"Ces fichiers ont été installés par un paquet, mais leur contenu diffère de ce que la distribution a publié. La documentation et la configuration sont écartées: cela ne devrait donc pas arriver sur un système intact.",
+			"Comparer à une copie saine (apt-get install --reinstall <paquet>, ou rpm -V <paquet>) et enquêter avant de réinstaller: réinstaller détruit la preuve.",
 			capEvidence(altered)...))
 	}
 	if len(missing) > 0 {
 		out = append(out, fail("PKG-MISSING", "integrity",
-			fmt.Sprintf("%d packaged file(s) are missing", len(missing)),
+			fmt.Sprintf("%d fichier(s) empaqueté(s) ont disparu", len(missing)),
 			model.SevLow,
-			"Files the package manager expects are absent, outside documentation and configuration. Usually a stripped image, occasionally a binary removed to hide a tool.",
-			"Confirm the removals were intentional.", capEvidence(missing)...))
+			"Des fichiers que le gestionnaire de paquets attend sont absents, hors documentation et configuration. C'est souvent une image allégée, parfois un binaire retiré pour dissimuler un outil.",
+			"Confirmer que ces suppressions étaient volontaires.", capEvidence(missing)...))
 	}
 	if len(configs) > 0 {
 		out = append(out, info("PKG-CONFIG", "integrity",
-			fmt.Sprintf("%d configuration file(s) changed since installation", len(configs)),
-			"Expected: configuration files exist to be edited. Listed so an unexpected one stands out.",
+			fmt.Sprintf("%d fichier(s) de configuration modifiés depuis l'installation", len(configs)),
+			"Attendu: un fichier de configuration existe pour être modifié. Ils sont listés pour qu'un fichier inattendu se remarque.",
 			capEvidence(configs)...))
 	}
 	if len(docs) > 0 {
 		out = append(out, info("PKG-DOC", "integrity",
-			fmt.Sprintf("%d documentation file(s) changed since installation", len(docs)),
-			"Manuals, changelogs and locales hold nothing executable. Compressed docs in particular differ whenever a package is rebuilt, which is why they never raise an alert.",
+			fmt.Sprintf("%d fichier(s) de documentation modifiés depuis l'installation", len(docs)),
+			"Manuels, journaux de version et traductions ne contiennent rien d'exécutable. Les documents compressés en particulier diffèrent dès qu'un paquet est reconstruit, ce qui explique qu'ils ne lèvent jamais d'alerte.",
 			capEvidence(docs)...))
 	}
-	if len(altered) == 0 && len(missing) == 0 {
+	// Ce que le gestionnaire n'a pas pu comparer doit se voir. Sans cela, une
+	// vérification partielle rend le même verdict qu'une vérification complète.
+	if warn != "" {
+		out = append(out, info("PKG-WARN", "integrity",
+			"Le gestionnaire de paquets a signalé des difficultés",
+			"Ces messages viennent de "+manager+" pendant la comparaison. Ce qu'il n'a pas pu lire n'apparaît nulle part ailleurs dans ce rapport.",
+			capEvidence(lignesNonVides(warn))...))
+	}
+	// La réussite n'est déclarée que si rien ne manque et que rien n'a résisté
+	// à la comparaison.
+	if len(altered) == 0 && len(missing) == 0 && warn == "" {
 		out = append(out, pass("PKG-OK", "integrity",
-			fmt.Sprintf("Every packaged binary matches the digest published by the distribution (%s)", manager)))
+			fmt.Sprintf("Tous les binaires empaquetés correspondent aux empreintes publiées par la distribution (%s)", manager)))
 	}
 	return out
 }
@@ -167,4 +178,15 @@ func parseVerifyLine(line string) (pkgAnomaly, bool) {
 // proves the file's contents changed; the others drift for benign reasons.
 func contentAltered(flags string) bool {
 	return strings.Contains(flags, "5")
+}
+
+// lignesNonVides découpe un texte en lignes utiles, sans les vides.
+func lignesNonVides(s string) []string {
+	var out []string
+	for _, l := range strings.Split(s, "\n") {
+		if l = strings.TrimSpace(l); l != "" {
+			out = append(out, l)
+		}
+	}
+	return out
 }

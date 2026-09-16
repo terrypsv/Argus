@@ -104,21 +104,26 @@ func macFirewall(ctx *engine.Context) []model.Finding {
 			}
 			return []model.Finding{fail("FW-OFF", "network",
 				"Le pare-feu applicatif est inactif", model.SevMedium,
-				out, "L'activer dans Réglages Système, Réseau, Pare-feu.")}
+				"Rien ne filtre les connexions entrantes vers les applications de cette machine.",
+				"L'activer dans Réglages Système, Réseau, Pare-feu.",
+				strings.TrimSpace(out))}
 		}
 	}
 	// Fallback to the alf preference.
 	out, err := runCmd(8*time.Second, "defaults", "read",
 		"/Library/Preferences/com.apple.alf", "globalstate")
 	if err != nil {
-		return []model.Finding{info("FW-UNKNOWN", "network", "État du pare-feu illisible", "")}
+		return []model.Finding{info("FW-UNKNOWN", "network", "État du pare-feu illisible",
+			"Ni socketfilterfw ni les préférences du système n'ont répondu. Rien n'est affirmé sur le pare-feu de cette machine.")}
 	}
 	if strings.TrimSpace(out) == "0" {
 		return []model.Finding{fail("FW-OFF", "network",
-			"Application firewall is disabled", model.SevMedium,
-			"globalstate = 0", "Activer le pare-feu dans Réglages Système.")}
+			"Le pare-feu applicatif est inactif", model.SevMedium,
+			"Rien ne filtre les connexions entrantes vers les applications de cette machine.",
+			"L'activer dans Réglages Système, Réseau, Pare-feu.",
+			"globalstate = 0")}
 	}
-	return []model.Finding{pass("FW-ON", "network", "Application firewall is enabled")}
+	return []model.Finding{pass("FW-ON", "network", "Le pare-feu applicatif est actif")}
 }
 
 func macPorts(ctx *engine.Context) []model.Finding {

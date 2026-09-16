@@ -2,6 +2,7 @@ package checks
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io/fs"
@@ -32,6 +33,26 @@ func runCmd(timeout time.Duration, name string, args ...string) (string, error) 
 	defer cancel()
 	out, err := exec.CommandContext(ctx, name, args...).Output()
 	return strings.TrimSpace(string(out)), err
+}
+
+// runCmdSeparate rend la sortie standard et la sortie d'erreur séparément.
+//
+// runCmd perd la seconde: Go ne la joint qu'à l'erreur, et une commande qui
+// réussit n'en produit pas. Or un programme peut très bien réussir tout en
+// signalant ce qu'il n'a pas pu faire, et c'est le cas des gestionnaires de
+// paquets. Jeter ce canal revient à transformer une vérification partielle en
+// vérification réussie.
+func runCmdSeparate(timeout time.Duration, name string, args ...string) (string, string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, name, args...)
+	var sortie, erreurs bytes.Buffer
+	cmd.Stdout = &sortie
+	cmd.Stderr = &erreurs
+	err := cmd.Run()
+
+	return strings.TrimSpace(sortie.String()), strings.TrimSpace(erreurs.String()), err
 }
 
 // cmdAvailable reports whether a binary can be found in PATH.
