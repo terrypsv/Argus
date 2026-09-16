@@ -17,31 +17,31 @@ import (
 
 // Bulletin est une analyse complete.
 type Bulletin struct {
-	Outil      string            `json:"tool"`
-	Version    string            `json:"version"`
-	Machine    Machine           `json:"host"`
-	Debut      time.Time         `json:"started_at"`
-	Fin        time.Time         `json:"finished_at"`
-	DureeMS    int64             `json:"duration_ms"`
-	Note       int               `json:"score"`
-	Mention    string            `json:"grade"`
-	Durcissement Axe             `json:"hardening"`
-	Integrite  Axe               `json:"integrity"`
-	Verdict    string            `json:"verdict"`
-	Profil     string            `json:"profile"`
-	Constats   []Constat         `json:"findings"`
-	Comptes    map[string]int    `json:"counts"`
-	Poids      map[string]float64 `json:"weights"`
+	Outil        string             `json:"tool"`
+	Version      string             `json:"version"`
+	Machine      Machine            `json:"host"`
+	Debut        time.Time          `json:"started_at"`
+	Fin          time.Time          `json:"finished_at"`
+	DureeMS      int64              `json:"duration_ms"`
+	Note         int                `json:"score"`
+	Mention      string             `json:"grade"`
+	Durcissement Axe                `json:"hardening"`
+	Integrite    Axe                `json:"integrity"`
+	Verdict      string             `json:"verdict"`
+	Profil       string             `json:"profile"`
+	Constats     []Constat          `json:"findings"`
+	Comptes      map[string]int     `json:"counts"`
+	Poids        map[string]float64 `json:"weights"`
 }
 
 // Machine identifie le poste analyse.
 type Machine struct {
-	Nom       string `json:"hostname"`
-	Systeme   string `json:"os"`
-	Arch      string `json:"arch"`
-	Noyau     string `json:"kernel"`
+	Nom        string `json:"hostname"`
+	Systeme    string `json:"os"`
+	Arch       string `json:"arch"`
+	Noyau      string `json:"kernel"`
 	Plateforme string `json:"platform"`
-	Coeurs    int    `json:"num_cpu"`
+	Coeurs     int    `json:"num_cpu"`
 }
 
 // Axe est le resultat d'une des deux notes.
@@ -50,12 +50,12 @@ type Machine struct {
 // publiees ensemble pour qu'une derogation ne puisse pas se faire passer pour
 // une correction.
 type Axe struct {
-	Note        int    `json:"score"`
-	Mention     string `json:"grade"`
-	Ecarts      int    `json:"issues"`
-	NoteBrute   int    `json:"raw_score"`
+	Note         int    `json:"score"`
+	Mention      string `json:"grade"`
+	Ecarts       int    `json:"issues"`
+	NoteBrute    int    `json:"raw_score"`
 	MentionBrute string `json:"raw_grade"`
-	Acceptes    int    `json:"accepted"`
+	Acceptes     int    `json:"accepted"`
 }
 
 // Constat est un point releve par un controle.

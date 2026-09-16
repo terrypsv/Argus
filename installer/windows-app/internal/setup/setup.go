@@ -78,14 +78,14 @@ type Composants struct {
 
 // Etat decrit ce qui est present sur la machine au demarrage de l'installeur.
 type Etat struct {
-	Installe    bool   `json:"installe"`
-	Version     string `json:"version"`
-	Repertoire  string `json:"repertoire"`
-	DansPath    bool   `json:"dansPath"`
-	Administrateur bool `json:"administrateur"`
-	Protege     bool   `json:"protege"`
-	AvecConsole bool   `json:"avecConsole"`
-	Surveillance string `json:"surveillance"`
+	Installe       bool   `json:"installe"`
+	Version        string `json:"version"`
+	Repertoire     string `json:"repertoire"`
+	DansPath       bool   `json:"dansPath"`
+	Administrateur bool   `json:"administrateur"`
+	Protege        bool   `json:"protege"`
+	AvecConsole    bool   `json:"avecConsole"`
+	Surveillance   string `json:"surveillance"`
 }
 
 // Anomalie signale un fichier absent ou dont l'empreinte ne correspond plus.
@@ -703,9 +703,9 @@ func RetirerDuPath(dir string) error {
 // les nouveaux processus voient le PATH sans qu'il faille se reconnecter.
 func DiffuserEnvironnement() {
 	const (
-		toutesFenetres  = 0xFFFF
-		messageReglage  = 0x001A
-		abandonSiFige   = 0x0002
+		toutesFenetres = 0xFFFF
+		messageReglage = 0x001A
+		abandonSiFige  = 0x0002
 	)
 	user32 := windows.NewLazySystemDLL("user32.dll")
 	proc := user32.NewProc("SendMessageTimeoutW")

@@ -151,32 +151,39 @@ func printFinding(w io.Writer, p palette, f model.Finding) {
 	}
 }
 
-// categorieFrancaise traduit l'intitule d'une categorie pour l'affichage.
+// categoriesFrancaises traduit les catégories pour l'affichage seulement.
 //
-// La traduction s'arrete a l'ecran: le champ Category sert de clef dans le
-// JSON et le Markdown, et argus diff compare deux rapports sur ces clefs.
-// Traduire la donnee rendrait incomparable un rapport pris avant avec un
-// rapport pris apres, ce qui est exactement ce que diff sert a eviter.
+// La clé reste en anglais dans le JSON et le Markdown: elle sert de repère à
+// argus diff, et la traduire rendrait incomparable un rapport pris avant avec
+// un rapport pris après.
 //
-// Une categorie inconnue est rendue telle quelle, en majuscules: un ajout
-// futur reste lisible sans passer par ici.
+// La table est une variable du paquet plutôt qu'une locale, pour que le test
+// puisse l'interroger. Les catégories ne sont enregistrées nulle part ailleurs:
+// elles sont écrites en clair dans chaque contrôle, et rien ne signale un
+// oubli à l'exécution.
+var categoriesFrancaises = map[string]string{
+	"accounts":     "COMPTES",
+	"antivirus":    "ANTIVIRUS",
+	"browser":      "NAVIGATEUR",
+	"certificates": "CERTIFICATS",
+	"disk":         "DISQUE",
+	"hardening":    "DURCISSEMENT",
+	"integrity":    "INTÉGRITÉ",
+	"kernel":       "NOYAU",
+	"network":      "RÉSEAU",
+	"persistence":  "PERSISTANCE",
+	"process":      "PROCESSUS",
+	"ssh":          "SSH",
+	"system":       "SYSTÈME",
+}
+
+// categorieFrancaise rend l'intitulé affiché d'une catégorie.
+//
+// Une catégorie absente de la table sort en majuscules plutôt que de disparaître:
+// un écran qui tait une catégorie inconnue serait pire qu'un écran qui l'affiche
+// telle quelle.
 func categorieFrancaise(cat string) string {
-	noms := map[string]string{
-		"accounts":     "COMPTES",
-		"antivirus":    "ANTIVIRUS",
-		"browser":      "NAVIGATEUR",
-		"certificates": "CERTIFICATS",
-		"disk":         "DISQUE",
-		"hardening":    "DURCISSEMENT",
-		"integrity":    "INTÉGRITÉ",
-		"network":      "RÉSEAU",
-		"packages":     "PAQUETS",
-		"persistence":  "PERSISTANCE",
-		"ssh":          "SSH",
-		"system":       "SYSTÈME",
-		"updates":      "MISES À JOUR",
-	}
-	if n, ok := noms[strings.ToLower(cat)]; ok {
+	if n, ok := categoriesFrancaises[strings.ToLower(cat)]; ok {
 		return n
 	}
 	return strings.ToUpper(cat)
