@@ -32,27 +32,27 @@ type Destination struct {
 // .msc des consoles d'administration. Aucune n'est inventée: une entrée fausse
 // ouvrirait une fenêtre sans rapport, ce qui est pire que pas de bouton du tout.
 var destinations = map[string]Destination{
-	"BL-OFF":      {"Ouvrir le chiffrement du disque", "ms-settings:deviceencryption"},
-	"BL-UNKNOWN":  {"Ouvrir le chiffrement du disque", "ms-settings:deviceencryption"},
-	"FW-OFF":      {"Ouvrir la sécurité Windows", "windowsdefender:"},
-	"AV-RTP":      {"Ouvrir la sécurité Windows", "windowsdefender:"},
-	"AV-SIG":      {"Ouvrir la sécurité Windows", "windowsdefender:"},
-	"UAC-OFF":     {"Ouvrir le contrôle de compte", "UserAccountControlSettings.exe"},
-	"SMB1-ON":     {"Ouvrir les fonctionnalités Windows", "OptionalFeatures.exe"},
-	"RDP-ON":      {"Ouvrir le bureau à distance", "ms-settings:remotedesktop"},
-	"RDP-NONLA":   {"Ouvrir le bureau à distance", "ms-settings:remotedesktop"},
-	"RUN-SUSP":    {"Ouvrir les applications de démarrage", "ms-settings:startupapps"},
-	"RUN-INV":     {"Ouvrir les applications de démarrage", "ms-settings:startupapps"},
-	"TASK-SUSP":   {"Ouvrir le planificateur de tâches", "taskschd.msc"},
-	"ADM-LIST":    {"Ouvrir les comptes d'utilisateurs", "netplwiz.exe"},
-	"CERT-INTERCEPT": {"Ouvrir les certificats de la machine", "certlm.msc"},
-	"CERT-LOCAL":  {"Ouvrir les certificats de la machine", "certlm.msc"},
-	"CERT-ROOT-INV": {"Ouvrir les certificats de la machine", "certlm.msc"},
-	"NET-PORT-TCP-445": {"Ouvrir le pare-feu", "WF.msc"},
+	"BL-OFF":            {"Ouvrir le chiffrement du disque", "ms-settings:deviceencryption"},
+	"BL-UNKNOWN":        {"Ouvrir le chiffrement du disque", "ms-settings:deviceencryption"},
+	"FW-OFF":            {"Ouvrir la sécurité Windows", "windowsdefender:"},
+	"AV-RTP":            {"Ouvrir la sécurité Windows", "windowsdefender:"},
+	"AV-SIG":            {"Ouvrir la sécurité Windows", "windowsdefender:"},
+	"UAC-OFF":           {"Ouvrir le contrôle de compte", "UserAccountControlSettings.exe"},
+	"SMB1-ON":           {"Ouvrir les fonctionnalités Windows", "OptionalFeatures.exe"},
+	"RDP-ON":            {"Ouvrir le bureau à distance", "ms-settings:remotedesktop"},
+	"RDP-NONLA":         {"Ouvrir le bureau à distance", "ms-settings:remotedesktop"},
+	"RUN-SUSP":          {"Ouvrir les applications de démarrage", "ms-settings:startupapps"},
+	"RUN-INV":           {"Ouvrir les applications de démarrage", "ms-settings:startupapps"},
+	"TASK-SUSP":         {"Ouvrir le planificateur de tâches", "taskschd.msc"},
+	"ADM-LIST":          {"Ouvrir les comptes d'utilisateurs", "netplwiz.exe"},
+	"CERT-INTERCEPT":    {"Ouvrir les certificats de la machine", "certlm.msc"},
+	"CERT-LOCAL":        {"Ouvrir les certificats de la machine", "certlm.msc"},
+	"CERT-ROOT-INV":     {"Ouvrir les certificats de la machine", "certlm.msc"},
+	"NET-PORT-TCP-445":  {"Ouvrir le pare-feu", "WF.msc"},
 	"NET-PORT-TCP-3389": {"Ouvrir le pare-feu", "WF.msc"},
-	"NET-LISTEN":  {"Ouvrir le pare-feu", "WF.msc"},
-	"DISK-LOW-C":  {"Ouvrir le stockage", "ms-settings:storagesense"},
-	"DISK-FULL-C": {"Ouvrir le stockage", "ms-settings:storagesense"},
+	"NET-LISTEN":        {"Ouvrir le pare-feu", "WF.msc"},
+	"DISK-LOW-C":        {"Ouvrir le stockage", "ms-settings:storagesense"},
+	"DISK-FULL-C":       {"Ouvrir le stockage", "ms-settings:storagesense"},
 }
 
 // destinationDe renvoie l'écran associé à un constat, s'il y en a un.
@@ -132,9 +132,9 @@ func (a *App) OuvrirEmplacement(chemin string) error {
 // passant l'adresse.
 
 type navigateur struct {
-	nom      string
-	page     string
-	chemins  []string
+	nom     string
+	page    string
+	chemins []string
 }
 
 var navigateurs = []navigateur{

@@ -66,7 +66,7 @@ func run() int {
 		return runServe()
 	case "version":
 		fmt.Printf("Argus %s (%s/%s)\n", engine.Version, osName(), archName())
-		fmt.Printf("Editeur : %s\n%s\n", engine.Author, engine.Repository)
+		fmt.Printf("Éditeur : %s\n%s\n", engine.Author, engine.Repository)
 		return 0
 	case "help", "-h", "--help":
 		usage()
@@ -220,8 +220,8 @@ func runBaseline() int {
 		fmt.Fprintf(os.Stderr, "baseline failed: %v\n", err)
 		return 1
 	}
-	fmt.Printf("Baseline written to %s (%d files hashed).\n", *baseline, n)
-	fmt.Println("Re-run `argus baseline` after any legitimate system update.")
+	fmt.Printf("Référence écrite dans %s (%d fichiers empreintés).\n", *baseline, n)
+	fmt.Println("Reprenez-la après toute mise à jour légitime du système.")
 	return 0
 }
 
@@ -236,7 +236,7 @@ func writeJSON(path string, rep model.Report) {
 		fmt.Fprintf(os.Stderr, "json encode failed: %v\n", err)
 		return
 	}
-	fmt.Fprintf(os.Stderr, "JSON report written to %s\n", path)
+	fmt.Fprintf(os.Stderr, "Rapport JSON écrit dans %s\n", path)
 }
 
 func writeMD(path string, rep model.Report) {
@@ -247,7 +247,7 @@ func writeMD(path string, rep model.Report) {
 	}
 	defer f.Close()
 	report.Markdown(f, rep)
-	fmt.Fprintf(os.Stderr, "Markdown report written to %s\n", path)
+	fmt.Fprintf(os.Stderr, "Rapport Markdown écrit dans %s\n", path)
 }
 
 // runUnaccept revokes a previously accepted finding.

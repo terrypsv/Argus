@@ -95,7 +95,6 @@ func recupererAncienEmplacement(nouveau string) {
 	})
 }
 
-
 func dossierAnalyses() (string, error) {
 	base, err := dossierDonnees()
 	if err != nil {
