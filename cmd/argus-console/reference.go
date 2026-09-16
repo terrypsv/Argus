@@ -14,17 +14,17 @@ import (
 // référence a été prise, et le nombre de fichiers qui s'en écartent depuis. La
 // première dit ce qu'elle décrit, la seconde ce qu'elle a détecté.
 type EtatReference struct {
-	Existe      bool      `json:"existe"`
-	Chemin      string    `json:"chemin"`
-	PriseLe     time.Time `json:"priseLe"`
-	Algorithme  string    `json:"algorithme"`
-	Fichiers    int       `json:"fichiers"`
-	Liste       []string  `json:"liste"`
-	Alteres     int       `json:"alteres"`
-	MisAJour    int       `json:"misAJour"`
-	Changes     int       `json:"changes"`
-	Manquants   int       `json:"manquants"`
-	Compare     bool      `json:"compare"`
+	Existe     bool      `json:"existe"`
+	Chemin     string    `json:"chemin"`
+	PriseLe    time.Time `json:"priseLe"`
+	Algorithme string    `json:"algorithme"`
+	Fichiers   int       `json:"fichiers"`
+	Liste      []string  `json:"liste"`
+	Alteres    int       `json:"alteres"`
+	MisAJour   int       `json:"misAJour"`
+	Changes    int       `json:"changes"`
+	Manquants  int       `json:"manquants"`
+	Compare    bool      `json:"compare"`
 }
 
 // referenceSurDisque est la forme du fichier écrit par `argus baseline`.
