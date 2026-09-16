@@ -65,6 +65,19 @@ func (c *Context) logf(format string, args ...any) {
 	}
 }
 
+// Annoncer permet à un contrôle de dire ce qu'il fait pendant qu'il le fait.
+//
+// La progression nomme chaque contrôle avant de le lancer, ce qui suffit tant
+// qu'ils durent quelques millisecondes. Un contrôle qui prend plusieurs minutes
+// est indiscernable d'un contrôle bloqué: rien ne bouge, et l'utilisateur finit
+// par interrompre une analyse qui se déroulait normalement.
+//
+// La méthode est exportée là où logf ne l'est pas, parce qu'elle s'adresse aux
+// contrôles et non au moteur.
+func (c *Context) Annoncer(format string, args ...any) {
+	c.logf(format, args...)
+}
+
 // CheckFunc is the unit of work. It must never panic in normal operation, but
 // the runner recovers panics defensively so a single broken check cannot abort
 // the whole scan.
