@@ -39,6 +39,11 @@ func pkgVerifyCheck(ctx *engine.Context) []model.Finding {
 			"Relancez avec --verify-packages pour comparer chaque fichier installé aux empreintes publiées par votre distribution. Cela prend plusieurs minutes, mais contrairement à une référence prise localement, ces empreintes ne peuvent pas avoir été faussées avant la première analyse.")}
 	}
 
+	// Dit avant de commencer combien de temps cela va prendre. Sans cela, six
+	// minutes s'écoulent sans le moindre signe et l'analyse paraît bloquée.
+	ctx.Annoncer("package-verify: plusieurs minutes, le gestionnaire de paquets " +
+		"n'affiche rien avant d'avoir tout comparé")
+
 	var raw string
 	var warn string
 	var manager string
