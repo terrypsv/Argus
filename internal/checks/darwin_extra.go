@@ -151,7 +151,7 @@ func macRemoteAccess(ctx *engine.Context) []model.Finding {
 		out = append(out, fail("RM-ON", "network",
 			"Remote Management (ARD) est activé", model.SevMedium,
 			"Apple Remote Desktop permet la prise en main de l'écran et l'exécution de commandes à distance. Détecté par "+why+".",
-			"Disable it in System Settings > General > Sharing if unused."))
+			"Le désactiver dans Réglages Système, Général, Partage, s'il ne sert pas."))
 	}
 
 	// Access granted to every local account is a much broader grant than access

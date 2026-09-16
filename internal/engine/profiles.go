@@ -30,32 +30,32 @@ type Profile struct {
 var profiles = map[string]Profile{
 	"workstation": {
 		Name:    "workstation",
-		Summary: "General-purpose machine. Every control applies.",
+		Summary: "Machine polyvalente. Tous les contrôles s'appliquent.",
 		Waivers: map[string]string{},
 	},
 	"audit": {
 		Name:    "audit",
-		Summary: "Penetration-testing or malware-analysis workstation.",
+		Summary: "Station de test d'intrusion ou d'analyse de logiciels malveillants.",
 		Waivers: map[string]string{
-			"KRN-KERNEL-YAMA-PTRACE_SCOPE": "debuggers and injection tooling require unrestricted ptrace",
-			"KRN-KERNEL-KPTR_RESTRICT":     "kernel addresses are needed for exploit development",
-			"KRN-KERNEL-DMESG_RESTRICT":    "kernel log access is part of the workflow",
-			"MNT-NOEXEC-TMP":               "tooling routinely executes payloads from /tmp",
-			"MNT-NOEXEC-DEV-SHM":           "tooling routinely executes payloads from /dev/shm",
+			"KRN-KERNEL-YAMA-PTRACE_SCOPE": "les débogueurs et les outils d'injection exigent un ptrace sans restriction",
+			"KRN-KERNEL-KPTR_RESTRICT":     "les adresses du noyau sont nécessaires au développement d'exploits",
+			"KRN-KERNEL-DMESG_RESTRICT":    "la lecture du journal du noyau fait partie du travail",
+			"MNT-NOEXEC-TMP":               "l'outillage exécute couramment des charges depuis /tmp",
+			"MNT-NOEXEC-DEV-SHM":           "l'outillage exécute couramment des charges depuis /dev/shm",
 		},
 	},
 	"container": {
 		Name:    "container",
-		Summary: "Containerised workload. Kernel and mount settings belong to the host.",
+		Summary: "Charge conteneurisée. Le noyau et les montages relèvent de l'hôte.",
 		Waivers: map[string]string{
-			"KRN-KERNEL-YAMA-PTRACE_SCOPE":    "sysctls are inherited from the host and cannot be set here",
-			"KRN-KERNEL-KPTR_RESTRICT":        "sysctls are inherited from the host and cannot be set here",
-			"KRN-KERNEL-DMESG_RESTRICT":       "sysctls are inherited from the host and cannot be set here",
-			"KRN-NET-IPV4-CONF-ALL-RP_FILTER": "network sysctls belong to the host namespace",
-			"MNT-NOEXEC-TMP":                  "mount options are decided by the container runtime",
-			"MNT-NOEXEC-DEV-SHM":              "mount options are decided by the container runtime",
-			"MNT-VAR-TMP":                     "mount layout is decided by the image, not the workload",
-			"FW-NONE":                         "filtering is the host's or the orchestrator's responsibility",
+			"KRN-KERNEL-YAMA-PTRACE_SCOPE":    "les sysctls sont hérités de l'hôte et ne peuvent pas être posés ici",
+			"KRN-KERNEL-KPTR_RESTRICT":        "les sysctls sont hérités de l'hôte et ne peuvent pas être posés ici",
+			"KRN-KERNEL-DMESG_RESTRICT":       "les sysctls sont hérités de l'hôte et ne peuvent pas être posés ici",
+			"KRN-NET-IPV4-CONF-ALL-RP_FILTER": "les sysctls réseau relèvent de l'espace de noms de l'hôte",
+			"MNT-NOEXEC-TMP":                  "les options de montage sont décidées par le moteur de conteneurs",
+			"MNT-NOEXEC-DEV-SHM":              "les options de montage sont décidées par le moteur de conteneurs",
+			"MNT-VAR-TMP":                     "la disposition des montages est décidée par l'image, pas par la charge",
+			"FW-NONE":                         "le filtrage relève de l'hôte ou de l'orchestrateur",
 		},
 	},
 }
@@ -78,7 +78,7 @@ func LookupProfile(name string) (Profile, error) {
 	}
 	p, ok := profiles[name]
 	if !ok {
-		return Profile{}, fmt.Errorf("unknown profile %q (available: %s)",
+		return Profile{}, fmt.Errorf("profil inconnu %q (disponibles: %s)",
 			name, strings.Join(ProfileNames(), ", "))
 	}
 	return p, nil
@@ -92,7 +92,7 @@ func (p Profile) exceptions() []Exception {
 	for id, why := range p.Waivers {
 		out = append(out, Exception{
 			ID:         id,
-			Reason:     fmt.Sprintf("profile %q: %s", p.Name, why),
+			Reason:     fmt.Sprintf("profil %q: %s", p.Name, why),
 			AcceptedBy: "profile",
 		})
 	}
