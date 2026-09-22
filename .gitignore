@@ -1,6 +1,8 @@
 ﻿# Binaries
 argus
 argus.exe
+argus_linux
+argus_darwin
 /argus-*
 /dist/
 *.exe
@@ -10,33 +12,19 @@ argus.exe
 argus-report.json
 argus-report.md
 argus-baseline.json
+argus-exceptions.json
 /reports/
+
+# Logs de scan
+*.log
+
+# Profils de couverture : produits par une mesure, jamais versionnes
+couverture
 
 # Editor / OS
 .vscode/
 .idea/
 .DS_Store
-
-# Logs de scan
-*.log
-
-# Logs de scan
-*.log
-
-# Logs de scan
-*.log
-argus-exceptions.json
-
-# profils de couverture: produits par une mesure, jamais versionnes
-couverture
-*.out
-
-# binaires compiles localement
-argus
-argus.exe
-argus_linux
-argus_darwin
-*.exe
 
 # console: binaires et sortie de la CLI Wails
 cmd/argus-console/argus-console.exe
