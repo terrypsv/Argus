@@ -11,7 +11,7 @@ de version décrit une conséquence.
 
 ## [Non publié]
 
-## [1.3.0] - 2026-09-15
+## [1.3.0] - 2026-09-23
 
 ### Ajouté
 
@@ -39,6 +39,8 @@ de version décrit une conséquence.
   programme, un tableau de bord ou un SIEM.
 - Un journal des modifications, dont ceci est la première entrée écrite avant
   publication plutôt qu'après.
+- Le contrôle des paquets annonce sa durée avant de commencer, pour qu'un contrôle long ne se confonde plus avec un contrôle bloqué.
+- Deux tests tiennent la table des catégories à jour : l'un échoue si une catégorie employée par un contrôle n'y figure pas, l'autre si une entrée ne correspond à aucune catégorie réelle.
 
 ### Modifié
 
@@ -53,6 +55,8 @@ de version décrit une conséquence.
 - La vérification continue tient en un seul workflow: Linux sur chaque demande
   de fusion, les trois systèmes sur la branche principale. Deux workflows
   lançaient jusqu'ici le même travail.
+- La vérification des paquets ne déclare plus que tout correspond quand une partie n'a pas été lue : dpkg et rpm signalent sur la sortie d'erreur ce qu'ils n'ont pas pu vérifier tout en se terminant normalement.
+- Les scripts d'exécution ne prennent plus la référence d'intégrité à la place de l'opérateur : ils signalent son absence et laissent la décision, prendre une référence revenant à déclarer la machine saine.
 
 ### Corrigé
 
@@ -64,6 +68,9 @@ de version décrit une conséquence.
 - Le tamponnage de version visait un chemin de module obsolète. Go n'échoue pas
   sur une cible inexistante, il l'ignore: la prochaine version aurait publié des
   binaires se déclarant `dev`. Une étape le vérifie désormais avant publication.
+- Trois zones du programme n'avaient jamais été traduites, faute d'avoir jamais été exécutées : la vérification des paquets, les motifs de dérogation des profils, et la voie de repli du pare-feu macOS.
+- La table des catégories ignorait kernel et process, et contenait packages et updates, qui ne correspondent à aucun contrôle.
+- Le contrôle du pare-feu macOS donnait la réponse brute de socketfilterfw pour description ; elle est désormais présentée comme la preuve qu'elle est.
 
 ## [1.2.1] - 2026-08-26
 
