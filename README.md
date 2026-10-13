@@ -3,16 +3,15 @@
 
 # Argus
 
-**Bulletin de posture de sécurité d'un poste.** Argus audite le noyau, les
-disques, les comptes, l'exposition réseau, les certificats de confiance et les
-mécanismes de persistance d'une machine, puis rend un rapport noté sur deux axes
-indépendants : le **durcissement** et l'**intégrité**.
+**Vérifie si un ordinateur Windows, Linux ou macOS est bien protégé et s'il porte des traces d'intrusion, puis signale ce qui change d'un contrôle à l'autre.**
 
-Il fonctionne sur **Linux, macOS et Windows**, se distribue sous forme d'un
-**binaire unique statique sans aucune dépendance tierce** (bibliothèque standard
-Go uniquement), et s'utilise de trois façons : en ligne de commande, par un
-rapport interactif dans le navigateur, ou par une application de bureau sous
-Windows pour qui n'a pas envie d'apprendre des commandes.
+Audit de posture d'un poste Windows, Linux ou macOS (noyau, comptes, chiffrement des disques, mécanismes de persistance, certificats racines), noté sur deux axes indépendants, durcissement et intégrité, avec suivi des dérives entre deux contrôles.
+
+Argus se distribue sous forme d'un **binaire unique statique sans aucune
+dépendance tierce** (bibliothèque standard Go uniquement), et s'utilise de trois
+façons, en ligne de commande, par un rapport interactif dans le navigateur, ou
+par une application de bureau sous Windows pour qui n'a pas envie d'apprendre
+des commandes.
 
 > Le nom vient d'*Argos Panoptès*, le géant aux cent yeux de la mythologie
 > grecque : le gardien qui voit tout.
@@ -265,7 +264,7 @@ par le workflow de publication depuis l'étiquette Git.
 argus                       Analyse, puis propose le rapport navigateur ou console.
 argus scan [options]        Analyse, rapport console. Affiche les deux notes.
 argus serve [options]       Analyse, puis rapport interactif dans le navigateur.
-argus baseline              Enregistre les empreintes SHA-256 des fichiers critiques.
+argus baseline [--add a,b]  Enregistre les empreintes SHA-256 des fichiers critiques, plus ceux de --add.
 argus accept <ID> --reason  Assume un constat examiné, avec motif et échéance.
 argus unaccept <ID>         Révoque une exception.
 argus exceptions            Liste ce qui est porté sciemment.
@@ -481,6 +480,8 @@ sudo ./argus scan --json ~/argus.json
 ./argus serve --report ~/argus.json
 ```
 
+`--no-open` affiche l'adresse du rapport au lieu d'ouvrir le navigateur.
+
 ---
 
 ## Profils de machine
@@ -620,6 +621,7 @@ internal/
              windows.go     contrôles Windows (//go:build windows)
              darwin*.go     contrôles macOS   (//go:build darwin)
 
+cmd/argus-schema/           convertit un rapport JSON d'argus scan au format de constat lu par Acta
 cmd/argus-console/          application de bureau Windows (module distinct)
 installer/windows-app/      installeur Windows (module distinct)
 installer/linux/            construction du paquet Debian
