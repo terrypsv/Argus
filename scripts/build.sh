@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Compilation croisee d'Argus vers ./dist, pour les essais locaux.
 #
-# Les binaires produits ici rapportent la version "dev": le numero est injecte
-# par le workflow de publication depuis l'etiquette Git, pas par ce script. Un
-# binaire local qui se declarerait 1.3.0 sans l'etre rendrait un rapport
-# irreproductible.
+# Les binaires produits ici rapportent la version que Go tire de Git,
+# l'etiquette ou le commit, suivie de +dirty si la copie de travail est
+# modifiee. Le numero de version n'est injecte que par le workflow de
+# publication. Un binaire local qui se declarerait 1.3.0 sans l'etre rendrait
+# un rapport irreproductible.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

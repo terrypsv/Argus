@@ -28,6 +28,10 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+  # Lancement a la main, quand GitHub perd l'evenement d'une demande de fusion
+  # et ne cree aucune verification pour son dernier commit. Seule la tache
+  # Linux tourne alors, la matrice restant reservee aux poussees.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -47,12 +51,15 @@ jobs:
     name: Linux et compilation croisee
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      # Actions epinglees par empreinte de commit, comme dans release.yml. Une
+      # etiquette peut etre deplacee vers un autre code sans que rien ne change
+      # ici, une empreinte non.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       # La version vient du module, pas d'une constante recopiee ici. Une
       # verification qui compile avec un Go different de celui declare verifie
       # autre chose que ce qui sera publie.
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
           cache: true
@@ -109,9 +116,9 @@ jobs:
         os: [macos-latest, windows-latest]
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
         with:
           go-version-file: go.mod
           cache: true

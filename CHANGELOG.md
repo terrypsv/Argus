@@ -11,6 +11,30 @@ de version décrit une conséquence.
 
 ## [Non publié]
 
+### Sécurité
+
+- La console de bureau et l'installeur Windows passent à Wails 2.17.1. Leurs
+  dépendances, golang.org/x/crypto, x/net, x/sys, x/text et echo, quittent les
+  versions touchées par des vulnérabilités connues, et govulncheck ne signale
+  plus rien dans les trois modules du dépôt (#129).
+- Les trois modules exigent Go 1.27.4. Les versions 1.27 précédentes portent une
+  faille de net/http, GO-2026-6859, que govulncheck dit atteinte par le serveur
+  local qui affiche le rapport dans le navigateur (#129).
+- Les actions de la vérification continue sont épinglées par empreinte de
+  commit, comme celles de la publication. Une étiquette déplacée vers un autre
+  code ne change plus ce qui s'exécute (#102).
+
+### Modifié
+
+- Argus est compilé avec Go 1.27.4, la version maintenue. macOS 13 Ventura
+  devient le minimum (#129).
+- Un binaire compilé à la main dit de quel code il vient. `argus version` et
+  les rapports portent la version que Go tire de Git, l'étiquette ou le commit,
+  suivie de `+dirty` si la copie de travail était modifiée, au lieu de `dev`.
+  Un dossier d'audit cite ainsi une version vérifiable (#52).
+- La vérification continue peut se lancer à la main, pour le cas où GitHub ne
+  la déclenche pas sur une demande de fusion.
+
 ## [1.3.0] - 2026-09-23
 
 ### Ajouté
