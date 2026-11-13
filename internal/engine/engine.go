@@ -18,6 +18,7 @@ import (
 // It is a var rather than a const so a release build can stamp the git tag into
 // the binary with -ldflags "-X github.com/terrypsv/Argus/internal/engine.Version=v1.2.3". A binary
 // that cannot say which version it is makes a report impossible to reproduce.
+// Without the stamp, version.go falls back to the version Go records from Git.
 var Version = "dev"
 
 // Author and Repository identify who produced a report. An audit result that

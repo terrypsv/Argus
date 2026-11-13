@@ -172,6 +172,9 @@ référence d'intégrité, ni au fichier des exceptions : ce sont vos données.
 
 ### macOS
 
+Argus demande macOS 13 Ventura ou plus récent, le minimum de Go 1.27 avec
+lequel il est compilé.
+
 Ouvrez `argus_1.3.0_darwin_arm64.pkg`. Le paquet n'est ni signé ni notarié :
 Gatekeeper le refusera au double-clic, ce qui est le régime normal pour un
 éditeur inconnu. Deux issues :
@@ -217,7 +220,8 @@ xattr -d com.apple.quarantine argus-macos-arm64
 ### Compilation depuis les sources
 
 Argus a besoin de la [chaîne d'outils Go](https://go.dev/dl/) déclarée dans
-`go.mod`. Aucune autre dépendance, aucun `go get`, fonctionne hors ligne.
+`go.mod`, Go 1.27.4 ou plus récent. Aucune autre dépendance, aucun `go get`,
+fonctionne hors ligne.
 
 ```bash
 git clone https://github.com/terrypsv/Argus.git
@@ -225,8 +229,12 @@ cd Argus
 go build -o argus .
 ```
 
-Un binaire compilé ainsi rapporte la version `dev`. Les binaires publiés portent
-leur numéro, injecté à la compilation depuis l'étiquette Git.
+Un binaire compilé ainsi rapporte la version que Go tire de Git, l'étiquette
+si le commit en porte une, sinon une pseudo-version qui contient le commit,
+suivie de `+dirty` si la copie de travail était modifiée. `argus version` dit
+donc exactement de quel code vient le binaire. Les binaires publiés portent leur
+numéro, injecté à la compilation depuis l'étiquette Git. `go run` ne connaît pas
+cette version et rapporte `dev`.
 
 L'application de bureau et l'installeur sont des **modules Go distincts**, sous
 `cmd/argus-console` et `installer/windows-app`. Ils portent leurs dépendances
@@ -253,8 +261,9 @@ Aucun d'eux ne prend la référence d'intégrité de sa propre initiative. Ils
 signalent son absence et donnent la commande : la prendre revient à déclarer la
 machine saine, et ce jugement n'appartient pas à un script.
 
-Les binaires produits ainsi rapportent la version `dev`. Le numéro est injecté
-par le workflow de publication depuis l'étiquette Git.
+Les binaires produits ainsi rapportent la version tirée de Git, comme une
+compilation à la main. Le numéro de version est injecté par le workflow de
+publication depuis l'étiquette Git.
 
 ---
 
